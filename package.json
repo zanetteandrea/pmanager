@@ -1,0 +1,26 @@
+{
+  "name": "pmanager_backend",
+  "version": "1.0.0",
+  "description": "Server side of PManager Project",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zanetteandrea/pmanager.git"
+  },
+  "author": "andrea zanette, david petrovic, giovanni de carlo, marco bonafini",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/zanetteandrea/pmanager/issues"
+  },
+  "homepage": "https://github.com/zanetteandrea/pmanager#readme",
+  "dependencies": {
+    "dotenv": "^16.0.1",
+    "express": "^4.18.1",
+    "mongoose": "^6.3.3",
+    "nodemon": "^2.0.16"
+  }
+}
