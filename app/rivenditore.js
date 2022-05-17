@@ -5,9 +5,9 @@ const Rivenditore = require('./models/rivenditore'); // get our mongoose model
 const validator = require('validator');
 /**
  * @swagger
- * /prodotti:
+ * /rivenditore:
  *   post:
- *     summary: Crea un nuovo prodotto
+ *     summary: Crea un nuovo rivenditore
  *     responses:
  *       201:
  *         description: Created
@@ -21,12 +21,63 @@ const validator = require('validator');
  *                   properties:
  *                     nome:
  *                       type: string
- *                       description: Il nome del prodotto
- *                       example: Mantovana
+ *                       description: Il nome del rivenditore
+ *                       example: Poli
 */
 
 function check_fields(riv) {
-    return validator.isEmail(riv.email)
+    let checks = {
+        valid: Boolean,
+        data: String
+    }
+    checks.valid = true
+
+    // CHECK FIELD NAME
+    if(!validator.isAlpha(riv.nome)){
+        checks.data = "nome"
+        checks.valid = false
+    }
+    // CHECK FIELD EMAIL
+    if(!validator.isEmail(riv.email)) {
+        checks.data = "email"
+        checks.valid = false
+    }
+    // CHECK FIELD TELEFONO
+    if(!validator.isInt(riv.telefono)) {
+        checks.data = "telefono"
+        checks.valid = false
+    }
+
+    let [via, civico, cap, citta] = riv.indirizzo.split('-')
+
+    // CHECK ALL PARTS OF ADDRESS
+    let via_fields = via.split(" ")
+    via_fields.forEach( x => { 
+        if(!validator.isAlpha(x)){ 
+            checks.data = "indirizzo"
+            checks.valid = false
+        } 
+    })
+
+    // CHECK FIELD CAP
+    if(!validator.isInt(cap)){
+        checks.data = "cap"
+        checks.valid = false
+    }   
+    
+    // CHECK FIELD CIVIC
+    if(!validator.isInt(civico)) {
+        checks.data = "civico"
+        checks.valid = false
+    }
+
+    // CHECK FIELD CITY
+    if(!validator.isAlpha(citta)){
+        checks.data = "citta"
+        checks.valid = false
+    }
+    return checks
+
 }
 
 
@@ -44,8 +95,9 @@ router.post('', (req, res) => {
         catalogo
     });
     
-    if(!check_fields(rivenditore)) {
-        res.status(400).send("invalid email");
+    let check = check_fields(rivenditore) 
+    if(!check.valid) {
+        res.status(400).send(`Campo [${check.data}] non valido`);
     } else {
         rivenditore = rivenditore.save().then(()=>{
             console.log('utente salvato con successo');
@@ -56,7 +108,6 @@ router.post('', (req, res) => {
         }
     }
 
-    
 });
 
 module.exports = router;
