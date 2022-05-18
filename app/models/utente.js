@@ -9,6 +9,7 @@ module.exports = mongoose.model('Utente', new Schema({
     email: String,
     telefono: String,
     hash_pw: String,
-    first_access: Boolean
+    first_access: Boolean,
+    ruolo: String
 
 }));
