@@ -22,7 +22,7 @@ var validator = require('validator');
  *       201:
  *         description: Prodotto creato con successo
  *       400:
- *         description: Dati inseriti non validi
+ *         description: Nome e/o foto del prodotto inseriti non validi
  * 
  *   delete:
  *     summary: Elimina un prodotto
@@ -40,6 +40,8 @@ var validator = require('validator');
  *     responses:
  *       204:
  *         description: Prodotto rimosso dal sistema
+ *       400:
+ *         description: Id del prodotto inserito non valido
  *       404:
  *         description: Prodotto non trovato
  *   patch:
@@ -75,8 +77,21 @@ var validator = require('validator');
  *       200:
  *         description: Prodotto modificato con successo
  *       400:
+ *         description: Dati inseriti non validi
+ *       404:
  *         description: Prodotto non trovato
 */
+
+router.get('', (req, res) => {
+    let prodotti = await Prodotto.find({});
+    prodotti = prodotti.map( (prodotto) => {
+        return {
+            self: '/api/v1/books/' + prodotto.id,
+            title: prodotto.title
+        };
+    });
+    res.status(200).json(prodotti);
+});
 
 router.post('', (req, res) => {
 
