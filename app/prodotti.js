@@ -5,6 +5,18 @@ var validator = require('validator');
 /**
  * @swagger
  * /prodotti:
+ *   get:
+ *     summary: Ritorna tutti i prodotti presenti nel sistema in formato json
+ *     responses:
+ *       200:
+ *         description: Prodotti ricevuti
+ *         content:
+ *           application/json:
+ *             schema:
+ *                type: array
+ *                description: ingredienti del prodotto
+ *                example: {"_id": "6284eb9ac1e5c03bd845a60a", "nome": "pane2", "ingredienti": [{"nome": "farina","quantita": 300,"udm": "gr","_id": "6284eb9ac1e5c03bd845a60b"}]} 
+ * 
  *   post:
  *     summary: Crea un nuovo prodotto
  *     requestBody:
@@ -22,7 +34,7 @@ var validator = require('validator');
  *       201:
  *         description: Prodotto creato con successo
  *       400:
- *         description: Nome e/o foto del prodotto inseriti non validi
+ *         description: Dati del prodotto inseriti non validi
  * 
  *   delete:
  *     summary: Elimina un prodotto
@@ -44,6 +56,7 @@ var validator = require('validator');
  *         description: Id del prodotto inserito non valido
  *       404:
  *         description: Prodotto non trovato
+ * 
  *   patch:
  *     summary: Modifica un prodotto
  *     requestBody:
@@ -82,14 +95,9 @@ var validator = require('validator');
  *         description: Prodotto non trovato
 */
 
-router.get('', (req, res) => {
-    let prodotti = await Prodotto.find({});
-    prodotti = prodotti.map( (prodotto) => {
-        return {
-            self: '/api/v1/books/' + prodotto.id,
-            title: prodotto.title
-        };
-    });
+router.get('', async(req, res) => {
+    let prodotti = await Prodotto.find().exec()
+    console.log("Prodotti ricevuti")
     res.status(200).json(prodotti);
 });
 
@@ -98,6 +106,16 @@ router.post('', (req, res) => {
     const { nome, ingredienti, prezzo, foto } = req.body
     if(validator.isEmpty(nome)){
         console.log('Nome del prodotto non valido');
+        res.status(400).send();
+        return;
+    }
+    if(!Array.isArray(ingredienti)){
+        console.log('Ingredienti del prodotto non validi');
+        res.status(400).send();
+        return;
+    }
+    if(isNaN(prezzo)){
+        console.log('Prezzo del prodotto non valido');
         res.status(400).send();
         return;
     }
@@ -120,34 +138,44 @@ router.post('', (req, res) => {
     res.status(201).send();
 });
 
-router.delete('', async (req, res) => {
+router.delete('', (req, res) => {
     const id = req.body.id
     if(validator.isEmpty(id)){
         console.log('Id del prodotto non valido');
         res.status(400).send();
         return;
     }
-    let prodotto = await Prodotto.findById(id).exec()
-    if (!prodotto) {
+    Prodotto.findById(id)
+    .then((prodotto) => {
+        prodotto.deleteOne().then(() => {
+            console.log('Prodotto eliminato con successo');
+        }).catch(() => {
+            console.log('Prodotto non trovato');
+            res.status(404).send()
+            return;
+        })
+    }).catch(() => {
         res.status(404).send()
         console.log("Prodotto non trovato")
         return;
-    }
-    prodotto.deleteOne().then(() => {
-        console.log('Prodotto eliminato con successo');
-    }).catch(() => {
-        console.log('Prodotto non trovato');
-        res.status(404).send()
-        return;
     })
-
     res.status(204).send()
 });
 
-router.patch('', async (req, res) => {
+router.patch('', (req, res) => {
     const { id, nome, ingredienti, prezzo, foto } = req.body
     if(validator.isEmpty(nome)){
         console.log('Nome del prodotto non valido');
+        res.status(400).send();
+        return;
+    }
+    if(!Array.isArray(ingredienti)){
+        console.log('Ingredienti del prodotto non validi');
+        res.status(400).send();
+        return;
+    }
+    if(isNaN(prezzo)){
+        console.log('Prezzo del prodotto non valido');
         res.status(400).send();
         return;
     }
@@ -160,7 +188,8 @@ router.patch('', async (req, res) => {
         "_id" : id
     },{
         $set: {"nome" : nome, "ingredienti": ingredienti, "prezzo": prezzo, "foto": foto}
-    }).then(() => {
+    })
+    .then(() => {
         console.log('Prodotto modificato con successo');
     }).catch(() => {
         console.log('Prodotto non trovato');
