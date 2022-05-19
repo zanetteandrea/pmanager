@@ -11,5 +11,7 @@ let riv = new Schema({
     }]
 });
 
+
+// Rivenditore Inherits From Utente
 let Rivenditore = utente.discriminator('Rivenditore', riv);
 module.exports = Rivenditore;
