@@ -8,7 +8,7 @@ const auth = require("./auth.js");
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use(auth);
+app.use(auth.router);
 
 
 module.exports = app;

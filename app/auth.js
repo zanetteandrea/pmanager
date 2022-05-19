@@ -97,7 +97,6 @@ const register = (utente) => {
     })
 }
 
-
 router.post("/login", (req, res) => {
     try {
 
@@ -142,5 +141,7 @@ router.post("/login", (req, res) => {
     }
 })
 
-module.exports = router
-exports.register = register
+module.exports = {
+    router: router,
+    register: register
+}
