@@ -122,16 +122,22 @@ const upload = multer({ storage: storage }).single('file')
 
 //API che ritorna tutti i prodotti presenti nel sistema in formato json
 router.get('', (req, res) => {
-    //richiesta al db
-    Prodotto.find().then((prod) => {
-        console.log("Prodotti ricevuti")
-        res.status(200).json(prod)
-    })
+    //controllo che sia stato l'AMM a fare la richiesta
+    if(req.auth.ruolo == ruoli.AMM){
+        //richiesta al db
+        Prodotto.find().then((prod) => {
+            console.log("Prodotti ricevuti")
+            res.status(200).json(prod)
+        })
+    }else{
+        res.status(401).send("Unauthorized access")
+    }
 })
 
 
 //API che permette l'aggiunta di un nuovo prodotto nel sistema
 router.post('', (req, res) => {
+    //controllo che sia stato l'AMM a fare la richiesta
     if(req.auth.ruolo == ruoli.AMM){
         //controllo la validità dei dati, se i dati non sono validi restituisco il codice 400
         if( req.body.nome === undefined || validator.isEmpty(req.body.nome) || req.body.nome === null){
@@ -193,6 +199,7 @@ router.post('', (req, res) => {
 
 //API per l'eliminazione di un prodotto nel sistema
 router.delete('', (req, res) => {
+    //controllo che sia stato l'AMM a fare la richiesta
     if(req.auth.ruolo == ruoli.AMM){
         //controllo la validità dell'id, se non è valido ritorno il codice 400
         if(validator.isEmpty(id) || id === null || id === undefined){
@@ -231,6 +238,7 @@ router.delete('', (req, res) => {
 
 //API per modificare un prodotto presente nel catalogo
 router.patch('', (req, res) => {
+    //controllo che sia stato l'AMM a fare la richiesta
     if(req.auth.ruolo == ruoli.AMM){
         //controllo la validità dei dati, se non sono validi restituisco il codice 400
         if( req.body.nome === undefined || validator.isEmpty(req.body.nome) || req.body.nome === null){
