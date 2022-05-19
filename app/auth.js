@@ -97,7 +97,6 @@ const register = (utente) => {
     })
 }
 
-
 router.post("/login", (req, res) => {
     try {
 
@@ -116,11 +115,11 @@ router.post("/login", (req, res) => {
                             const token = jwt.sign(
                                 {
                                     id: utente._id,
-                                    email: utente.email
+                                    ruolo: utente.ruolo
                                 },
                                 process.env.SECRET_KEY,
                                 {
-                                    expiresIn: "2h",
+                                    expiresIn: "7d",
                                 }
                             )
                             res.status(200).json({
@@ -142,9 +141,28 @@ router.post("/login", (req, res) => {
     }
 })
 
-// module.exports = router
-//module.exports = register
-module.exports = { 
-    router:router,
-    register:register
-};
+router.all("/*", (req, res, next) => {
+    // check header or url parameters or post parameters for token
+    var token = req.body.token || req.query.token || req.headers['x-access-token'];
+    // if there is no token
+    if (!token) {
+        return res.status(403).send("No token provided")
+    }
+    console.log(token)
+    jwt.verify(token, process.env.SECRET_KEY, (err, decoded) => {
+        if (err) {
+            return res.status(401).send({ message: "Unauthorized access" });
+        }
+        console.log(decoded.ruolo)
+        req.auth = {
+            id: decoded.id,
+            ruolo: decoded.ruolo
+        }
+        next();
+    });
+})
+
+module.exports = {
+    router: router,
+    register: register
+}

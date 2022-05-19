@@ -56,6 +56,8 @@ const auth = require('./auth')
  *         description: Rivenditore creato con successo
  *       400:
  *         description: Dati del Rivenditore inseriti non validi o Rivenditore già presente
+ *       401:
+ *         description: Tentativo di aggiunta non autorizzato
  * 
  *   delete:
  *     summary: Elimina un Rivenditore
@@ -190,40 +192,44 @@ function check_duplicate(riv) {
 // ADD NEW RIVENDITORE
 router.post('', (req, res) => {
 
-    const {nome, email, telefono, indirizzo, catalogo} = req.body
+    ruolo = req.auth.role
+    if(req.auth.ruolo == "amm") {
+        const {nome, email, telefono, indirizzo, catalogo} = req.body
 
-	let rivenditore = new Rivenditore({
-        nome,
-        email,
-        telefono,
-        indirizzo,
-        catalogo,
-        ruolo: "rivenditore"
-    });
-    
-    check_duplicate(rivenditore).then((duplicate)=>{
-        if(duplicate){
-            console.log("Rivenditore già presente")
-            res.status(400).send();
-            return;
-        }
-        let check = check_fields(rivenditore) 
-        if(!check.valid) {
-            res.status(400).send(`Campo [${check.data}] non valido`);
-        } else {
-            auth.register(rivenditore)
-            .then(()=>{
-                console.log('rivenditore salvato con successo');
-                res.status(201).send();
-            })
-            .catch(()=>{
+        let rivenditore = new Rivenditore({
+            nome,
+            email,
+            telefono,
+            indirizzo,
+            catalogo,
+            ruolo: "Rivenditore"
+        });
+        
+        check_duplicate(rivenditore).then((duplicate)=>{
+            if(duplicate){
+                console.log("Rivenditore già presente")
                 res.status(400).send();
-            })
+                return;
+            }
+            let check = check_fields(rivenditore) 
+            if(!check.valid) {
+                res.status(400).send(`Campo [${check.data}] non valido`);
+            } else {
+                auth.register(rivenditore)
+                .then(()=>{
+                    console.log('rivenditore salvato con successo');
+                    res.status(201).send();
+                })
+                .catch(()=>{
+                    res.status(400).send();
+                })
 
-        }
+            }
 
-    })
-    
+        })
+    } else {
+        res.status(401).send();
+    }
 
 });
 
