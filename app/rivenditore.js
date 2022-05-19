@@ -1,22 +1,26 @@
 const express = require('express');
 const router = express.Router();
-const Rivenditore = require('./models/rivenditore'); // get our mongoose model
+const Rivenditore = require('./models/Rivenditore'); // get our mongoose model
 //const Utente = require('./models/utente'); // get our mongoose model
 const validator = require('validator');
+//const register = require('./auth')
+const auth = require('./auth')
 /**
  * @swagger
  * /Rivenditore:
  *   get:
  *     summary: Ritorna tutti i rivenditori presenti nel sistema in formato json
+ *     requestBody:
+ *        required: true
+ *        content:
+ *          application/json:
+ *            schema:
+ *               type: object
+ *               description: generalità del rivenditore
+ *               example: {"_id": "6284eb9ac1e5c03bd845a60a", "nome": "Poli", "email": "poli@supermercato.it", "telefono": "3475264874", "indirizzo": "via san giuseppe 35 38088 spiazzo", "catalogo": [{"id": "mantovana","prezzo": 5}]}
  *     responses:
  *       200:
- *         description: Rivenditori ricevuti
- *         content:
- *           application/json:
- *             schema:
- *                type: array
- *                description: generalità del rivenditore
- *                example: {"_id": "6284eb9ac1e5c03bd845a60a", "nome": "Poli", "email": "poli@supermercato.it", "telefono": "3475264874", "indirizzo": "via san giuseppe 35 38088 spiazzo", "catalogo": [{"id": "mantovana","prezzo": 5}]} 
+ *         description: OK           
  * 
  *   post:
  *     summary: Crea un nuovo Rivenditore
@@ -39,14 +43,6 @@ const validator = require('validator');
  *                 type: string
  *                 description: telefono del Rivenditore.
  *                 example: 3475264874
- *               password:
- *                 type: string
- *                 description: password del Rivenditore.
- *                 example: ahd87fh92bsd
- *               first_Access:
- *                 type: Boolean
- *                 description: primo accesso del Rivenditore.
- *                 example: true
  *               indirizzo:
  *                 type: string
  *                 description: indirizzo del Rivenditore.
@@ -54,12 +50,12 @@ const validator = require('validator');
  *               catalogo:
  *                 type: Object
  *                 description: catalogo di prodotti ordinabili dal Rivenditore.
- *                 example: mantovana, prezzo 5
+ *                 example: [{"id": "mantovana","prezzo": 5}]
  *     responses:
  *       201:
  *         description: Rivenditore creato con successo
  *       400:
- *         description: Dati del Rivenditore inseriti non validi
+ *         description: Dati del Rivenditore inseriti non validi o Rivenditore già presente
  * 
  *   delete:
  *     summary: Elimina un Rivenditore
@@ -99,18 +95,22 @@ const validator = require('validator');
  *                 type: string
  *                 description: nome del Rivenditore
  *                 example: Poli
- *               ingredienti:
- *                 type: array
- *                 description: ingredienti del Rivenditore
- *                 example: {nome: acqua, quantita: 1, udm: L}
- *               prezzo:
- *                 type: float
- *                 description: prezzo del prodotto
- *                 example: 1.5
- *               foto:
+ *               email:
  *                 type: string
- *                 description: path della foto del prodotto
- *                 example: /images/mantovana.jpeg
+ *                 description: email del Rivenditore.
+ *                 example: poli@supermercato.it
+ *               telefono:
+ *                 type: string
+ *                 description: telefono del Rivenditore.
+ *                 example: 3475264874
+ *               indirizzo:
+ *                 type: string
+ *                 description: indirizzo del Rivenditore.
+ *                 example: via san giuseppe 35 38088 spiazzo
+ *               catalogo:
+ *                 type: Object
+ *                 description: catalogo di prodotti ordinabili dal Rivenditore.
+ *                 example: [{"id": "mantovana","prezzo": 5}]
  *     responses:
  *       200:
  *         description: Rivenditore modificato con successo
@@ -128,7 +128,7 @@ function check_fields(riv) {
     checks.valid = true
 
     // CHECK FIELD NAME
-    if(!validator.isAlpha(riv.nome)){
+    if(riv.nome.length<=2){
         checks.data = "nome"
         checks.valid = false
     }
@@ -211,13 +211,15 @@ router.post('', (req, res) => {
         if(!check.valid) {
             res.status(400).send(`Campo [${check.data}] non valido`);
         } else {
-            rivenditore = rivenditore.save().then(()=>{
+            auth.register(rivenditore)
+            .then(()=>{
                 console.log('rivenditore salvato con successo');
                 res.status(201).send();
             })
-            if(!rivenditore) {
+            .catch(()=>{
                 res.status(400).send();
-            }
+            })
+
         }
 
     })
@@ -249,14 +251,12 @@ router.delete('', async (req, res) => {
 //UPDATE DATA RIVENDITORE
 router.patch('', (req, res) => {
 
-    const {_id, nome, email, telefono, password, first_access, indirizzo, catalogo} = req.body
+    const {_id, nome, email, telefono, indirizzo, catalogo} = req.body
 
     let rivenditore = new Rivenditore({
         nome,
         email,
         telefono,
-        password,
-        first_access: true,
         indirizzo,
         catalogo
     });
@@ -268,7 +268,7 @@ router.patch('', (req, res) => {
         Rivenditore.findOneAndUpdate({
             "_id" : _id
         },{
-            $set: {"nome" : rivenditore.nome, "email": rivenditore.email, "telefono": rivenditore.telefono, "password": rivenditore.password, "first_access": rivenditore.first_access, "indirizzo": rivenditore.indirizzo, "catalogo": rivenditore.catalogo}
+            $set: {"nome" : rivenditore.nome, "email": rivenditore.email, "telefono": rivenditore.telefono, "indirizzo": rivenditore.indirizzo, "catalogo": rivenditore.catalogo}
         })
         .then(() => {
             console.log('Rivenditore modificato con successo');
