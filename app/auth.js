@@ -81,14 +81,13 @@ const register = (utente) => {
         sendCredentials(utente.nome, utente.email, password)
             .then(() => {
                 utente.hash_pw = bcrypt.hashSync(password)
-                utente.ruolo = "test"
                 utente.first_access = true
                 utente.save()
                     .then(() => {
                         resolve()
                     })
                     .catch(() => {
-                        console.log("errore salvataggio")
+                        console.log("Errore salvataggio")
                         reject()
                     })
             })
@@ -141,25 +140,6 @@ router.post("/login", (req, res) => {
         console.log(err);
         res.status(500).send("Internal error");
     }
-})
-
-router.get("", (req, res, next) => {
-    const { nome, email, telefono, indirizzo } = req.body
-
-    let utente = new Utente({
-        nome,
-        email,
-        telefono,
-        indirizzo,
-    });
-
-    register(utente)
-        .then(() => {
-            res.status(200).send()
-        })
-        .catch(() => {
-            res.status(401).send("Invalid email")
-        })
 })
 
 module.exports = router
