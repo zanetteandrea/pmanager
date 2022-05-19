@@ -1,7 +1,7 @@
-const express = require('express');
-const router = express.Router();
-const Prodotto = require('./models/prodotto'); // get our mongoose model
-var validator = require('validator');
+const express = require('express')
+const router = express.Router()
+const Prodotto = require('./models/prodotto') // get our mongoose model
+var validator = require('validator')
 /**
  * @swagger
  * /prodotti:
@@ -15,7 +15,7 @@ var validator = require('validator');
  *             schema:
  *                type: array
  *                description: ingredienti del prodotto
- *                example: {"_id": "6284eb9ac1e5c03bd845a60a", "nome": "pane2", "ingredienti": [{"nome": "farina","quantita": 300,"udm": "gr","_id": "6284eb9ac1e5c03bd845a60b"}]} 
+ *                example: {"_id": "6284eb9ac1e5c03bd845a60a", "nome": "pane2", "ingredienti": [{"nome": "farina","quantita": 300,"udm": "gr","_id": "6284eb9ac1e5c03bd845a60b"}], "prezzo": 1.3, "foto": "/images/mantovana.jpg"} 
  * 
  *   post:
  *     summary: Crea un nuovo prodotto
@@ -26,19 +26,19 @@ var validator = require('validator');
  *           schema:
  *             type: object
  *             properties:
- *               nome:
+ *               "nome":
  *                 type: string
  *                 description: Nome del prodotto.
- *                 example: Mantovana
- *               ingredienti:
+ *                 example: "Mantovana"
+ *               "ingredienti":
  *                 type: array
  *                 description: Array degli ingredienti del prodotto.
- *                 example: [{nome: acqua, quantita: 1, udm: L}]
- *               prezzo:
+ *                 example: [{"nome": "acqua", "quantita": 1, "udm": "L"}]
+ *               "prezzo":
  *                 type: float
  *                 description: Prezzo del prodotto.
  *                 example: 1.3
- *               foto:
+ *               "foto":
  *                 type: object
  *                 description: Foto del prodotto
  *     responses:
@@ -56,10 +56,10 @@ var validator = require('validator');
  *           schema:
  *             type: object
  *             properties:
- *               id:
+ *               "id":
  *                 type: object
  *                 description: id del prodotto
- *                 example: 6284a31ef6e9638dcb7985e1
+ *                 example: "6284a31ef6e9638dcb7985e1"
  *     responses:
  *       204:
  *         description: Prodotto rimosso dal sistema
@@ -77,23 +77,23 @@ var validator = require('validator');
  *           schema:
  *             type: object
  *             properties:
- *               id:
+ *               "id":
  *                 type: object
  *                 description: id del prodotto
- *                 example: 6284a31ef6e9638dcb7985e1
- *               nome:
+ *                 example: "6284a31ef6e9638dcb7985e1"
+ *               "nome":
  *                 type: string
  *                 description: nome del prodotto
- *                 example: Mantovana
- *               ingredienti:
+ *                 example: "Mantovana"
+ *               "ingredienti":
  *                 type: array
  *                 description: ingredienti del prodotto
- *                 example: {nome: acqua, quantita: 1, udm: L}
- *               prezzo:
+ *                 example: {"nome": "acqua", "quantita": 1, "udm": "L"}
+ *               "prezzo":
  *                 type: float
  *                 description: prezzo del prodotto
  *                 example: 1.5
- *               foto:
+ *               "foto":
  *                 type: object
  *                 description: Foto del prodotto
  *     responses:
@@ -105,40 +105,43 @@ var validator = require('validator');
  *         description: Prodotto non trovato
 */
 
+
 //API che ritorna tutti i prodotti presenti nel sistema in formato json
 router.get('', (req, res) => {
     //richiesta al db
     Prodotto.find().then((prod) => {
         console.log("Prodotti ricevuti")
-        res.status(200).json(prod);
+        res.status(200).json(prod)
     })
-});
+})
+
 
 //API che permette l'aggiunta di un nuovo prodotto nel sistema
 router.post('', (req, res) => {
-    //salvo i dati passati nel body della richiesta in alcune variabili
-    const { nome, ingredienti, prezzo, foto } = req.body
     //controllo la validità dei dati, se i dati non sono validi restituisco il codice 400
-    if(validator.isEmpty(nome) || nome === null){
-        console.log('Nome del prodotto non valido');
-        res.status(400).send();
-        return;
+    if( req.body.nome === undefined || validator.isEmpty(req.body.nome) || req.body.nome === null){
+        console.log('Nome del prodotto non valido')
+        res.status(400).send()
+        return
     }
-    if(!Array.isArray(ingredienti) || ingredienti === null){
-        console.log('Ingredienti del prodotto non validi');
-        res.status(400).send();
-        return;
+    if(req.body.ingredienti === undefined || !Array.isArray(req.body.ingredienti) || req.body.ingredienti === null){
+        console.log('Ingredienti del prodotto non validi')
+        res.status(400).send()
+        return
     }
-    if(isNaN(prezzo) || prezzo === null){
-        console.log('Prezzo del prodotto non valido');
-        res.status(400).send();
-        return;
+    if(req.body.prezzo === undefined || isNaN(req.body.prezzo) || req.body.prezzo === null){
+        console.log('Prezzo del prodotto non valido')
+        res.status(400).send()
+        return
     }
-    if(validator.isEmpty(foto) || foto === null){
-        console.log('Path foto del prodotto non valida');
-        res.status(400).send();
-        return;
+    if(req.body.foto === undefined || validator.isEmpty(req.body.foto) || req.body.foto === null){
+        console.log('Foto del prodotto non valida')
+        res.status(400).send()
+        return
     }
+
+    //se i dati passati nel body della richiesta sono validi li salvo in alcune variabili
+    const { nome, ingredienti, prezzo, foto } = req.body
 
     //creo l'oggetto prodotto
     let prodotto = new Prodotto({
@@ -146,33 +149,35 @@ router.post('', (req, res) => {
         ingredienti,
         prezzo,
         foto
-    });
+    })
 
     //salvo il nuovo prodotto nel db
     prodotto = prodotto.save()
     .then(() => {
         //se il salvataggio è andato a buon fine restituisco il codice 201
-        console.log('Prodotto salvato con successo');
-        res.status(201).send();
-    }).catch((err) =>{
+        console.log('Prodotto salvato con successo')
+        res.status(201).send()
+    })
+    .catch((err) =>{
         //se il salvataggio non è andato a buon fine restituisco il codice 400
         console.log("Errore salvataggio nuovo prodotto: " + err)
-        res.status(400).send();
+        res.status(400).send()
     })
     
-});
+})
+
 
 //API per l'eliminazione di un prodotto nel sistema
 router.delete('', (req, res) => {
-    //salvo l'id passato nel body della richiesta in una variabile
-    const id = req.body.id
-
-    //controllo la validità dell'id, se invalido ritorno il codice 400
-    if(validator.isEmpty(id)){
-        console.log('Id del prodotto non valido');
-        res.status(400).send();
-        return;
+    //controllo la validità dell'id, se non è valido ritorno il codice 400
+    if(validator.isEmpty(id) || id === null || id === undefined){
+        console.log('Id del prodotto non valido')
+        res.status(400).send()
+        return
     }
+
+    //se l'id passato nel body della richiesta è valido, lo salvo in una variabile
+    const id = req.body.id
 
     //cerco quel prodotto nel db
     Prodotto.findById(id)
@@ -181,46 +186,49 @@ router.delete('', (req, res) => {
         prodotto.deleteOne()
         .then(() => {
             //se l'eliminazione va a buon fine, restituisco il codice 204
-            console.log('Prodotto eliminato con successo');
+            console.log('Prodotto eliminato con successo')
             res.status(204).send()
-        }).catch((err) => {
+        })
+        .catch((err) => {
             //se l'eliminazione non va a buon fine, restituisco il codice 404
-            console.log('Eliminazione non riuscita: ' + err);
+            console.log('Eliminazione non riuscita: ' + err)
             res.status(404).send()
         })
-    }).catch((err) => {
+    })
+    .catch((err) => {
         //se non lo trovo, restituisco il codice 404
         console.log("Prodotto non trovato: " + err)
         res.status(404).send()
     })
-});
+})
+
 
 //API per modificare un prodotto presente nel catalogo
 router.patch('', (req, res) => {
-    //salvo i dati passati nel body della richiesta in alcune variabili
-    const { id, nome, ingredienti, prezzo, foto } = req.body
-
     //controllo la validità dei dati, se non sono validi restituisco il codice 400
-    if(validator.isEmpty(nome) || nome === null){
-        console.log('Nome del prodotto non valido');
-        res.status(400).send();
-        return;
+    if( req.body.nome === undefined || validator.isEmpty(req.body.nome) || req.body.nome === null){
+        console.log('Nome del prodotto non valido')
+        res.status(400).send()
+        return
     }
-    if(!Array.isArray(ingredienti) || ingredienti === null){
-        console.log('Ingredienti del prodotto non validi');
-        res.status(400).send();
-        return;
+    if(req.body.ingredienti === undefined || !Array.isArray(req.body.ingredienti) || req.body.ingredienti === null){
+        console.log('Ingredienti del prodotto non validi')
+        res.status(400).send()
+        return
     }
-    if(isNaN(prezzo) || ingredienti === null){
-        console.log('Prezzo del prodotto non valido');
-        res.status(400).send();
-        return;
+    if(req.body.prezzo === undefined || isNaN(req.body.prezzo) || req.body.prezzo === null){
+        console.log('Prezzo del prodotto non valido')
+        res.status(400).send()
+        return
     }
-    if(validator.isEmpty(foto) || foto === null){
-        console.log('Path foto del prodotto non valida');
-        res.status(400).send();
-        return;
+    if(req.body.foto === undefined || validator.isEmpty(req.body.foto) || req.body.foto === null){
+        console.log('Foto del prodotto non valida')
+        res.status(400).send()
+        return
     }
+
+    //se i dati passati nel body della richiesta sono validi li salvo in alcune variabili
+    const { id, nome, ingredienti, prezzo, foto } = req.body
 
     //cerco il prodotto nel db attraverso l'id e quando lo trovo, aggiorno i dati
     Prodotto.findOneAndUpdate({
@@ -230,13 +238,14 @@ router.patch('', (req, res) => {
     })
     .then(() => {
         //se va a buon fine, restituisco il codice 200
-        console.log('Prodotto modificato con successo');
+        console.log('Prodotto modificato con successo')
         res.status(200).send()
-    }).catch((err) => {
+    })
+    .catch((err) => {
         //se non va a buon fine, restituisco il codice 404
-        console.log('Prodotto non trovato: ' + err);
+        console.log('Prodotto non trovato: ' + err)
         res.status(404).send()
     })
-});
+})
 
-module.exports = router;
+module.exports = router
