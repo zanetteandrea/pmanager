@@ -1,4 +1,4 @@
-export const ruoli = {
+module.exports = {
     AMM: "amm",
     RIVENDITORE: "rivenditore",
     SPEDIZIONIERE: "spedizioniere",

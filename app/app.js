@@ -1,6 +1,8 @@
 const express = require('express');
 const app = express();
 const auth = require("./auth.js");
+const ruoli = require('./models/ruoli.js');
+
 /**
  * Configure Express.js parsing middleware
  */
