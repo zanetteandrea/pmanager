@@ -51,7 +51,7 @@ const ruoli = require('./models/ruoli');
  *               catalogo:
  *                 type: Object
  *                 description: catalogo di prodotti ordinabili dal Rivenditore.
- *                 example: [{"id": "mantovana","prezzo": 5}]
+ *                 example: [{"id": "62875f0ea3b2841c579af936","prezzo": 5}]
  *     responses:
  *       201:
  *         description: Rivenditore creato con successo
@@ -59,28 +59,7 @@ const ruoli = require('./models/ruoli');
  *         description: Dati del Rivenditore inseriti non validi o Rivenditore già presente
  *       401:
  *         description: Tentativo di aggiunta non autorizzato
- * 
- *   delete:
- *     summary: Elimina un Rivenditore
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               id:
- *                 type: object
- *                 description: id del Rivenditore
- *                 example: 6284a31ef6e9638dcb7985e1
- *     responses:
- *       204:
- *         description: Rivenditore rimosso dal sistema
- *       400:
- *         description: Id del Rivenditore inserito non valido
- *       404:
- *         description: Rivenditore non trovato
- * 
+ *  
  *   patch:
  *     summary: Modifica un Rivenditore
  *     requestBody:
@@ -113,7 +92,7 @@ const ruoli = require('./models/ruoli');
  *               catalogo:
  *                 type: Object
  *                 description: catalogo di prodotti ordinabili dal Rivenditore.
- *                 example: [{"id": "mantovana","prezzo": 5}]
+ *                 example: [{"id": "62875f0ea3b2841c579af936","prezzo": 5}]
  *     responses:
  *       200:
  *         description: Rivenditore modificato con successo
@@ -121,6 +100,24 @@ const ruoli = require('./models/ruoli');
  *         description: Dati inseriti non validi
  *       404:
  *         description: Rivenditore non trovato
+ * /Rivenditore/:id:
+ *   delete:
+ *      summary: Eliminazione Rivenditore
+ *      paths:
+ *         /rivenditore/{id}
+ *      parameters:
+ *       - in: path
+ *         name: id
+ *         description: id del Rivenditore da eliminare
+ *      schema:
+ *         type: String
+ *      responses:
+ *         204:
+ *           description: Rivenditore rimosso dal sistema
+ *         400:
+ *           description: Errore durante la rimozione
+ *         404:
+ *           description: Rivenditore non presente
 */
 
 function check_fields(riv) {
@@ -207,8 +204,7 @@ router.post('', (req, res) => {
         
         check_duplicate(rivenditore).then((duplicate)=>{
             if(duplicate){
-                console.log("Rivenditore già presente")
-                res.status(400).send();
+                res.status(400).send('rivenditore già presente');
                 return;
             }
             let check = check_fields(rivenditore) 
@@ -217,18 +213,17 @@ router.post('', (req, res) => {
             } else {
                 auth.register(rivenditore)
                 .then(()=>{
-                    console.log('rivenditore salvato con successo');
-                    res.status(201).send();
+                    res.status(201).send('rivenditore salvato con successo');
                 })
                 .catch(()=>{
-                    res.status(400).send();
+                    res.status(400).send('errore durante il salvataggio');
                 })
 
             }
 
         })
     } else {
-        res.status(401).send();
+        res.status(401).send('Accesso non Autorizzato');
     }
 
 });
@@ -239,17 +234,14 @@ router.delete('/:id', async (req, res) => {
     const _id = req.params
     let rivenditore = await Rivenditore.findById(_id).exec();
     if(!rivenditore) {
-        res.status(404).send();
-        console.log("Rivenditore Non Presente")
+        res.status(404).send("Rivenditore Non Presente");
         return;
     }
     try{
         await rivenditore.deleteOne()
-        console.log("rivendenditore rimosso")
-        res.status(204).send();
+        res.status(204).send("rivendenditore rimosso");
     } catch {
-        console.log("Errore durante la rimozione")
-        res.status(400).send();
+        res.status(400).send("Errore durante la rimozione");
     }
 });
 
@@ -277,11 +269,9 @@ router.patch('', (req, res) => {
             $set: {"nome" : rivenditore.nome, "email": rivenditore.email, "telefono": rivenditore.telefono, "indirizzo": rivenditore.indirizzo, "catalogo": rivenditore.catalogo}
         })
         .then(() => {
-            console.log('Rivenditore modificato con successo');
-            res.status(200).send() 
+            res.status(200).send('Rivenditore modificato con successo') 
         }).catch(() => {
-            console.log('Rivenditore non trovato');
-            res.status(404).send()
+            res.status(404).send('Rivenditore non trovato')
             return;
         })
 
