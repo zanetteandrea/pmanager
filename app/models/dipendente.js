@@ -4,7 +4,7 @@ const utente = require('./utente');
 
 // set up a mongoose model
 let dip = new Schema({
-    turnoLavorativo: [{
+    orario: [{
         giorno: Number,
         oraIniziale: Number,
         oraFinale: Number
