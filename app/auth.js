@@ -100,15 +100,14 @@ const register = (utente) => {
 router.post("/login", (req, res) => {
     try {
 
+        const { email, password } = req.body
+
         if (!validator.isEmail(req.body.email) || validator.isEmpty(req.body.password)) {
-            res.status(401).send("All input is required")
+            return res.status(401).send("Inserire dati validi")
         }
-
-        const { email, password } = req.body;
-
+        
         Utente.findOne({ email }).then((utente) => {
             if (utente) {
-                console.log(utente)
                 bcrypt.compare(password, utente.hash_pw)
                     .then((isEqual) => {
                         if (isEqual) {
@@ -122,22 +121,21 @@ router.post("/login", (req, res) => {
                                     expiresIn: "7d",
                                 }
                             )
-                            res.status(200).json({
+                            return res.status(200).json({
                                 nome: utente.nome,
                                 token,
                                 role: utente.ruolo
                             })
                         } else {
-                            res.status(401).send("Invalid Credentials");
+                            return res.status(401).send("Password errata");
                         }
                     })
             } else {
-                res.status(401).send("Invalid Credentials");
+                return res.status(401).send("Email non valida");
             }
         })
     } catch (err) {
-        console.log(err);
-        res.status(500).send("Internal error");
+        return res.status(401).send("Inserire tutti i campi")
     }
 })
 

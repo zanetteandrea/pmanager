@@ -130,7 +130,6 @@ router.get('', (req, res) => {
         res.status(400).send('Ruolo utente non valido')
         return
     }
-
     //controllo se è stato l'AMM a fare la richiesta
     if(req.auth.ruolo == ruoli.AMM){
         //richiesta al db
@@ -201,13 +200,13 @@ router.post('', (req, res) => {
         }
 
         //se i dati passati nel body della richiesta sono validi li salvo in alcune variabili
-        const { nome, ingredienti, prezzo} = req.body
-
+        const { nome, ingredienti, prezzo, foto} = req.body
+        /*
         upload(req.body.foto, res, (err) => {
             if (err) {
                 res.sendStatus(500);
             }
-        })
+        })*/
 
         //creo l'oggetto prodotto
         let prodotto = new Prodotto({
