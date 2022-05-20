@@ -148,12 +148,10 @@ router.all("/*", (req, res, next) => {
     if (!token) {
         return res.status(403).send("No token provided")
     }
-    console.log(token)
     jwt.verify(token, process.env.SECRET_KEY, (err, decoded) => {
         if (err) {
             return res.status(401).send({ message: "Unauthorized access" });
         }
-        console.log(decoded.ruolo)
         req.auth = {
             id: decoded.id,
             ruolo: decoded.ruolo

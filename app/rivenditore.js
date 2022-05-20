@@ -4,7 +4,8 @@ const Rivenditore = require('./models/Rivenditore'); // get our mongoose model
 //const Utente = require('./models/utente'); // get our mongoose model
 const validator = require('validator');
 //const register = require('./auth')
-const auth = require('./auth')
+const auth = require('./auth');
+const ruoli = require('./models/ruoli');
 /**
  * @swagger
  * /Rivenditore:
@@ -192,8 +193,7 @@ function check_duplicate(riv) {
 // ADD NEW RIVENDITORE
 router.post('', (req, res) => {
 
-    ruolo = req.auth.role
-    if(req.auth.ruolo == "amm") {
+    if(req.auth.ruolo == ruoli.AMM) {
         const {nome, email, telefono, indirizzo, catalogo} = req.body
 
         let rivenditore = new Rivenditore({
