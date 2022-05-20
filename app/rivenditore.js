@@ -202,7 +202,7 @@ router.post('', (req, res) => {
             telefono,
             indirizzo,
             catalogo,
-            ruolo: "Rivenditore"
+            ruolo: ruoli.RIVENDITORE
         });
         
         check_duplicate(rivenditore).then((duplicate)=>{
@@ -234,9 +234,9 @@ router.post('', (req, res) => {
 });
 
 // DELETE RIVENDITORE
-router.delete('', async (req, res) => {
+router.delete('/:id', async (req, res) => {
 
-    const _id = req.body
+    const _id = req.params
     let rivenditore = await Rivenditore.findById(_id).exec();
     if(!rivenditore) {
         res.status(404).send();
