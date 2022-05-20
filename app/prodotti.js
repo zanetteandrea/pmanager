@@ -10,7 +10,7 @@ const Rivenditore = require('./models/rivenditore')
  * @swagger
  * /prodotti:
  *   get:
- *     summary: Ritorna tutti i prodotti presenti nel sistema in formato json
+ *     summary: Ritorna tutti i prodotti presenti nel sistema, se la richiesta è effettuata dall'AMM, o quelli visibili dal rivenditore che effettua la richiesta in formato json 
  *     responses:
  *       200:
  *         description: Prodotti ricevuti
@@ -20,6 +20,12 @@ const Rivenditore = require('./models/rivenditore')
  *                type: array
  *                description: ingredienti del prodotto
  *                example: {"_id": "6284eb9ac1e5c03bd845a60a", "nome": "pane2", "ingredienti": [{"nome": "farina","quantita": 300,"udm": "gr","_id": "6284eb9ac1e5c03bd845a60b"}], "prezzo": 1.3, "foto": "/images/mantovana.jpg"} 
+ *       400:
+ *         description: Ruolo non valido
+ *       401:
+ *         description: Accesso non autorizzato
+ *       404:
+ *         description: Prodotto o rivenditore non trovato nel database
  * 
  *   post:
  *     summary: Crea un nuovo prodotto
@@ -50,27 +56,6 @@ const Rivenditore = require('./models/rivenditore')
  *         description: Prodotto creato con successo
  *       400:
  *         description: Dati del prodotto inseriti non validi
- * 
- *   delete:
- *     summary: Elimina un prodotto
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               "id":
- *                 type: object
- *                 description: id del prodotto
- *                 example: "6284a31ef6e9638dcb7985e1"
- *     responses:
- *       204:
- *         description: Prodotto rimosso dal sistema
- *       400:
- *         description: Id del prodotto inserito non valido
- *       404:
- *         description: Prodotto non trovato
  * 
  *   patch:
  *     summary: Modifica un prodotto
@@ -107,6 +92,24 @@ const Rivenditore = require('./models/rivenditore')
  *         description: Dati inseriti non validi
  *       404:
  *         description: Prodotto non trovato
+ * 
+ * /prodotti/id:
+ *   delete:
+ *     summary: Elimina un prodotto
+ *     responses:
+ *       204:
+ *         description: Prodotto rimosso dal sistema
+ *       400:
+ *         description: Id del prodotto inserito non valido
+ *       404:
+ *         description: Prodotto non trovato
+ * parameters:
+ *   in: path
+ *   name: id
+ *   description: L'id del prodotto da eliminare
+ *   required: true
+ *   schema: 
+ *     type: string
 */
 
 const storage = multer.diskStorage({
@@ -114,7 +117,7 @@ const storage = multer.diskStorage({
         cb(null, 'images/')
     },
     filename: (req, file, cb) => {
-        cb(null, req.body.nome)
+        cb(null, req.params.id)
     }
 })
 
@@ -144,9 +147,6 @@ router.get('', (req, res) => {
             let ids = rivenditore.catalogo.map(elem => elem.id)
             Prodotto.find( { _id : { $in : ids } } )
             .then((listaProdotti) =>{
-                /*for(var i=0;i<listaProdotti.length;i++){
-                    listaProdotti[i].prezzo = prezzi[i]
-                }*/
                 listaProdotti.forEach((prod) => {
                     let index = rivenditore.catalogo.findIndex((p) => p.id == prod._id)
                     prod.prezzo = rivenditore.catalogo[index].prezzo
@@ -155,7 +155,7 @@ router.get('', (req, res) => {
             })
             .catch((err) =>{
                 console.log('Prodotti non trovati')
-                res.status(400).send('Prodotti non trovati')
+                res.status(404).send('Prodotti non trovati')
                 return
             })
 
@@ -192,35 +192,24 @@ router.post('', (req, res) => {
             res.status(400).send('Prezzo del prodotto non valido')
             return
         }
-        /*if (req.file === undefined || req.file === null) {
-            console.log('Foto del prodotto non valida')
-            res.status(400).send('Foto del prodotto non valida')
-            return
-        }*/
 
         //se i dati passati nel body della richiesta sono validi li salvo in alcune variabili
         const { nome, ingredienti, prezzo} = req.body
-        
-        upload(req, res, (err) => {
-            if (err) {
-                return res.status(500).send("Errore upload foto");
-            }
-        })
 
         //creo l'oggetto prodotto
         let prodotto = new Prodotto({
             nome,
             ingredienti,
             prezzo,
-            foto: "images/"+nome
+            foto: "images/" + nome
         })
 
         //salvo il nuovo prodotto nel db
         prodotto = prodotto.save()
-            .then(() => {
+            .then((err, prod) => {
                 //se il salvataggio è andato a buon fine restituisco il codice 201
                 console.log('Prodotto salvato con successo')
-                res.status(201).send('Prodotto salvato con successo')
+                res.status(201).send(prod)
             })
             .catch((err) => {
                 //se il salvataggio non è andato a buon fine restituisco il codice 400
@@ -231,6 +220,15 @@ router.post('', (req, res) => {
         res.status(401).send("Unauthorized access")
     }
 
+})
+
+
+router.post("/:id",(req, res) => {
+    upload(req, res, (err) => {
+        if (err) {
+            return res.status(500).send("Errore upload foto");
+        }
+    })
 })
 
 
@@ -306,7 +304,7 @@ router.patch('', (req, res) => {
         Prodotto.findOneAndUpdate({
             "_id": _id
         }, {
-            $set: { "nome": nome, "ingredienti": ingredienti, "prezzo": prezzo }
+            $set: { "nome": nome, "ingredienti": ingredienti, "prezzo": prezzo}
         })
             .then(() => {
                 //se va a buon fine, restituisco il codice 200
