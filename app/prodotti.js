@@ -4,6 +4,8 @@ const Prodotto = require('./models/prodotto') // get our mongoose model
 const ruoli = require("./models/ruoli")
 const multer = require('multer')
 var validator = require('validator')
+const auth = require('./auth')
+const Rivenditore = require('./models/rivenditore')
 
 /**
  * @swagger
@@ -122,14 +124,51 @@ const upload = multer({ storage: storage }).single('file')
 
 //API che ritorna tutti i prodotti presenti nel sistema in formato json
 router.get('', (req, res) => {
-    //controllo che sia stato l'AMM a fare la richiesta
+    //controllo che il ruolo passato nella richiesta sia valido, in caso negativo restituisco il codice 400
+    if(req.auth.ruolo === undefined || req.auth.ruolo === null || validator.isEmpty(req.auth.ruolo)){
+        console.log('Ruolo utente non valido')
+        res.status(400).send('Ruolo utente non valido')
+        return
+    }
+
+    //controllo se è stato l'AMM a fare la richiesta
     if(req.auth.ruolo == ruoli.AMM){
         //richiesta al db
         Prodotto.find().then((prod) => {
             console.log("Prodotti ricevuti")
             res.status(200).json(prod)
         })
-    }else{
+    }else if(req.auth.ruolo == ruoli.RIVENDITORE){ //controllo se è stato un rivenditore a fare la richiesta
+        //cerco il rivenditore nel sistema
+        Rivenditore.findById(req.auth.id)
+        .then((rivenditore) => {
+            //se lo trovo, cerco tutti i prodotti visibili da quel rivenditore nel db e gli restituisco con i prezzi personalizzati
+            let ids = rivenditore.catalogo.map(elem => elem.id)
+            Prodotto.find( { _id : { $in : ids } } )
+            .then((listaProdotti) =>{
+                /*for(var i=0;i<listaProdotti.length;i++){
+                    listaProdotti[i].prezzo = prezzi[i]
+                }*/
+                listaProdotti.forEach((prod) => {
+                    let index = rivenditore.catalogo.findIndex((p) => p.id == prod._id)
+                    prod.prezzo = rivenditore.catalogo[index].prezzo
+                })
+                res.status(200).json(listaProdotti)
+            })
+            .catch((err) =>{
+                console.log('Prodotti non trovati')
+                res.status(400).send('Prodotti non trovati')
+                return
+            })
+
+        })
+        .catch((err) => {
+            //se non lo trovo, restituisco il codice 404
+            console.log("Rivenditore non trovato: " + err)
+            res.status(404).send("Rivenditore non trovato: " + err)
+        })
+
+    }else{ //se non è stato l'AMM e nemmeno un rivenditore a fare la richiesta, l'accesso non è autorizzato
         res.status(401).send("Unauthorized access")
     }
 })
@@ -198,18 +237,18 @@ router.post('', (req, res) => {
 
 
 //API per l'eliminazione di un prodotto nel sistema
-router.delete('', (req, res) => {
+router.delete('/:id', (req, res) => {
     //controllo che sia stato l'AMM a fare la richiesta
     if(req.auth.ruolo == ruoli.AMM){
         //controllo la validità dell'id, se non è valido ritorno il codice 400
-        if(validator.isEmpty(id) || id === null || id === undefined){
+        if(req.params.id === undefined || req.params.id === null || validator.isEmpty(req.params.id)){
             console.log('Id del prodotto non valido')
             res.status(400).send('Id del prodotto non valido')
             return
         }
 
         //se l'id passato nel body della richiesta è valido, lo salvo in una variabile
-        const id = req.body.id
+        const id = req.params.id
 
         //cerco quel prodotto nel db
         Prodotto.findById(id)
