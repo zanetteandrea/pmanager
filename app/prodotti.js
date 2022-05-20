@@ -96,6 +96,15 @@ const Rivenditore = require('./models/rivenditore')
  * /prodotti/id:
  *   delete:
  *     summary: Elimina un prodotto
+ *     paths: 
+ *       /prodotti/{id}
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         description: L'id del prodotto da eliminare
+ *         required: true
+ *     schema: 
+ *       type: string
  *     responses:
  *       204:
  *         description: Prodotto rimosso dal sistema
@@ -103,13 +112,6 @@ const Rivenditore = require('./models/rivenditore')
  *         description: Id del prodotto inserito non valido
  *       404:
  *         description: Prodotto non trovato
- * parameters:
- *   in: path
- *   name: id
- *   description: L'id del prodotto da eliminare
- *   required: true
- *   schema: 
- *     type: string
 */
 
 const storage = multer.diskStorage({
@@ -117,56 +119,56 @@ const storage = multer.diskStorage({
         cb(null, 'images/')
     },
     filename: (req, file, cb) => {
-        cb(null, req.params.id)
+        cb(null, req.params.id+'.png')
     }
 })
 
-const upload = multer({ storage: storage }).single('file')
+const upload = multer({ storage: storage })
 
 
 //API che ritorna tutti i prodotti presenti nel sistema in formato json
 router.get('', (req, res) => {
     //controllo che il ruolo passato nella richiesta sia valido, in caso negativo restituisco il codice 400
-    if(req.auth.ruolo === undefined || req.auth.ruolo === null || validator.isEmpty(req.auth.ruolo)){
+    if (req.auth.ruolo === undefined || req.auth.ruolo === null || validator.isEmpty(req.auth.ruolo)) {
         console.log('Ruolo utente non valido')
         res.status(400).send('Ruolo utente non valido')
         return
     }
     //controllo se è stato l'AMM a fare la richiesta
-    if(req.auth.ruolo == ruoli.AMM){
+    if (req.auth.ruolo == ruoli.AMM) {
         //richiesta al db
         Prodotto.find().then((prod) => {
             console.log("Prodotti ricevuti")
             res.status(200).json(prod)
         })
-    }else if(req.auth.ruolo == ruoli.RIVENDITORE){ //controllo se è stato un rivenditore a fare la richiesta
+    } else if (req.auth.ruolo == ruoli.RIVENDITORE) { //controllo se è stato un rivenditore a fare la richiesta
         //cerco il rivenditore nel sistema
         Rivenditore.findById(req.auth.id)
-        .then((rivenditore) => {
-            //se lo trovo, cerco tutti i prodotti visibili da quel rivenditore nel db e gli restituisco con i prezzi personalizzati
-            let ids = rivenditore.catalogo.map(elem => elem.id)
-            Prodotto.find( { _id : { $in : ids } } )
-            .then((listaProdotti) =>{
-                listaProdotti.forEach((prod) => {
-                    let index = rivenditore.catalogo.findIndex((p) => p.id == prod._id)
-                    prod.prezzo = rivenditore.catalogo[index].prezzo
-                })
-                res.status(200).json(listaProdotti)
+            .then((rivenditore) => {
+                //se lo trovo, cerco tutti i prodotti visibili da quel rivenditore nel db e gli restituisco con i prezzi personalizzati
+                let ids = rivenditore.catalogo.map(elem => elem.id)
+                Prodotto.find({ _id: { $in: ids } })
+                    .then((listaProdotti) => {
+                        listaProdotti.forEach((prod) => {
+                            let index = rivenditore.catalogo.findIndex((p) => p.id == prod._id)
+                            prod.prezzo = rivenditore.catalogo[index].prezzo
+                        })
+                        res.status(200).json(listaProdotti)
+                    })
+                    .catch((err) => {
+                        console.log('Prodotti non trovati')
+                        res.status(404).send('Prodotti non trovati')
+                        return
+                    })
+
             })
-            .catch((err) =>{
-                console.log('Prodotti non trovati')
-                res.status(404).send('Prodotti non trovati')
-                return
+            .catch((err) => {
+                //se non lo trovo, restituisco il codice 404
+                console.log("Rivenditore non trovato: " + err)
+                res.status(404).send("Rivenditore non trovato: " + err)
             })
 
-        })
-        .catch((err) => {
-            //se non lo trovo, restituisco il codice 404
-            console.log("Rivenditore non trovato: " + err)
-            res.status(404).send("Rivenditore non trovato: " + err)
-        })
-
-    }else{ //se non è stato l'AMM e nemmeno un rivenditore a fare la richiesta, l'accesso non è autorizzato
+    } else { //se non è stato l'AMM e nemmeno un rivenditore a fare la richiesta, l'accesso non è autorizzato
         res.status(401).send("Unauthorized access")
     }
 })
@@ -175,7 +177,7 @@ router.get('', (req, res) => {
 //API che permette l'aggiunta di un nuovo prodotto nel sistema
 router.post('', (req, res) => {
     //controllo che sia stato l'AMM a fare la richiesta
-    if(req.auth.ruolo == ruoli.AMM){
+    if (req.auth.ruolo == ruoli.AMM) {
         //controllo la validità dei dati, se i dati non sono validi restituisco il codice 400
         if (req.body.nome === undefined || validator.isEmpty(req.body.nome) || req.body.nome === null) {
             console.log('Nome del prodotto non valido')
@@ -194,21 +196,20 @@ router.post('', (req, res) => {
         }
 
         //se i dati passati nel body della richiesta sono validi li salvo in alcune variabili
-        const { nome, ingredienti, prezzo} = req.body
+        const { nome, ingredienti, prezzo } = req.body
 
         //creo l'oggetto prodotto
         let prodotto = new Prodotto({
             nome,
             ingredienti,
             prezzo,
-            foto: "images/" + nome
+            foto: ""
         })
 
         //salvo il nuovo prodotto nel db
         prodotto = prodotto.save()
-            .then((err, prod) => {
+            .then((prod) => {
                 //se il salvataggio è andato a buon fine restituisco il codice 201
-                console.log('Prodotto salvato con successo')
                 res.status(201).send(prod)
             })
             .catch((err) => {
@@ -223,21 +224,36 @@ router.post('', (req, res) => {
 })
 
 
-router.post("/:id",(req, res) => {
-    upload(req, res, (err) => {
-        if (err) {
-            return res.status(500).send("Errore upload foto");
-        }
-    })
+router.post("/:id", upload.single('image'), (req, res) => {
+    console.log("Entro nell'upload", req.params.id)
+    try {
+        /*
+        upload(req, res, (err) => {
+            if (err) {
+                return res.status(500).send("Errore upload foto");
+            }
+        })
+        */
+        Prodotto.findOneAndUpdate({
+            "_id": req.params.id
+        }, {
+            $set: { "foto": "images/" + req.params.id + ".png" }
+        })
+            .then(() => {
+                res.status(200).send('Immagine salvata con successo')
+            })
+    } catch (err) {
+        return res.status(500).send("Errore upload foto");
+    }
 })
 
 
 //API per l'eliminazione di un prodotto nel sistema
 router.delete('/:id', (req, res) => {
     //controllo che sia stato l'AMM a fare la richiesta
-    if(req.auth.ruolo == ruoli.AMM){
+    if (req.auth.ruolo == ruoli.AMM) {
         //controllo la validità dell'id, se non è valido ritorno il codice 400
-        if(req.params.id === undefined || req.params.id === null || validator.isEmpty(req.params.id)){
+        if (req.params.id === undefined || req.params.id === null || validator.isEmpty(req.params.id)) {
             console.log('Id del prodotto non valido')
             res.status(400).send('Id del prodotto non valido')
             return
@@ -274,7 +290,7 @@ router.delete('/:id', (req, res) => {
 //API per modificare un prodotto presente nel catalogo
 router.patch('', (req, res) => {
     //controllo che sia stato l'AMM a fare la richiesta
-    if(req.auth.ruolo == ruoli.AMM){
+    if (req.auth.ruolo == ruoli.AMM) {
         //controllo la validità dei dati, se non sono validi restituisco il codice 400
         if (req.body.nome === undefined || validator.isEmpty(req.body.nome) || req.body.nome === null) {
             console.log('Nome del prodotto non valido')
@@ -291,12 +307,6 @@ router.patch('', (req, res) => {
             res.status(400).send('Prezzo del prodotto non valido')
             return
         }
-        /*if (req.body.foto === undefined || validator.isEmpty(req.body.foto) || req.body.foto === null) {
-            console.log('Foto del prodotto non valida')
-            res.status(400).send('Foto del prodotto non valida')
-            return
-        }
-        */
         //se i dati passati nel body della richiesta sono validi li salvo in alcune variabili
         const { _id, nome, ingredienti, prezzo } = req.body
 
@@ -304,7 +314,7 @@ router.patch('', (req, res) => {
         Prodotto.findOneAndUpdate({
             "_id": _id
         }, {
-            $set: { "nome": nome, "ingredienti": ingredienti, "prezzo": prezzo}
+            $set: { "nome": nome, "ingredienti": ingredienti, "prezzo": prezzo }
         })
             .then(() => {
                 //se va a buon fine, restituisco il codice 200
