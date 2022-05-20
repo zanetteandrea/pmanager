@@ -96,6 +96,15 @@ const Rivenditore = require('./models/rivenditore')
  * /prodotti/id:
  *   delete:
  *     summary: Elimina un prodotto
+ *     paths: 
+ *       /prodotti/{id}
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         description: L'id del prodotto da eliminare
+ *         required: true
+ *     schema: 
+ *       type: string
  *     responses:
  *       204:
  *         description: Prodotto rimosso dal sistema
@@ -103,13 +112,6 @@ const Rivenditore = require('./models/rivenditore')
  *         description: Id del prodotto inserito non valido
  *       404:
  *         description: Prodotto non trovato
- * parameters:
- *   in: path
- *   name: id
- *   description: L'id del prodotto da eliminare
- *   required: true
- *   schema: 
- *     type: string
 */
 
 const storage = multer.diskStorage({
@@ -192,11 +194,6 @@ router.post('', (req, res) => {
             res.status(400).send('Prezzo del prodotto non valido')
             return
         }
-        if (req.file === undefined || req.file === null) {
-            console.log('Foto del prodotto non valida')
-            res.status(400).send('Foto del prodotto non valida')
-            return
-        }
 
         //se i dati passati nel body della richiesta sono validi li salvo in alcune variabili
         const { nome, ingredienti, prezzo} = req.body
@@ -206,12 +203,12 @@ router.post('', (req, res) => {
             nome,
             ingredienti,
             prezzo,
-            foto: "images/" + nome
+            foto: ""
         })
 
         //salvo il nuovo prodotto nel db
         prodotto = prodotto.save()
-            .then((err, prod) => {
+            .then((prod) => {
                 //se il salvataggio è andato a buon fine restituisco il codice 201
                 console.log('Prodotto salvato con successo')
                 res.status(201).send(prod)
@@ -234,6 +231,14 @@ router.post("/:id",(req, res) => {
             return res.status(500).send("Errore upload foto");
         }
     })
+    Prodotto.findOneAndUpdate({
+        "_id": req.params.id
+    }, {
+        $set: { "foto": "images/"+req.params.id}
+    })
+        .then(() => {
+            res.status(200).send('Immagine salvata con successo')
+        })
 })
 
 
@@ -296,11 +301,6 @@ router.patch('', (req, res) => {
             res.status(400).send('Prezzo del prodotto non valido')
             return
         }
-        /*if (req.body.foto === undefined || validator.isEmpty(req.body.foto) || req.body.foto === null) {
-            console.log('Foto del prodotto non valida')
-            res.status(400).send('Foto del prodotto non valida')
-            return
-        }*/
 
         //se i dati passati nel body della richiesta sono validi li salvo in alcune variabili
         const { _id, nome, ingredienti, prezzo} = req.body
