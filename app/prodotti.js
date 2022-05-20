@@ -4,7 +4,6 @@ const Prodotto = require('./models/prodotto') // get our mongoose model
 const ruoli = require("./models/ruoli")
 const multer = require('multer')
 var validator = require('validator')
-const auth = require('./auth')
 const Rivenditore = require('./models/rivenditore')
 
 /**
@@ -115,7 +114,7 @@ const storage = multer.diskStorage({
         cb(null, 'images/')
     },
     filename: (req, file, cb) => {
-        cb(null, file.originalname)
+        cb(null, req.body.nome)
     }
 })
 
@@ -193,27 +192,27 @@ router.post('', (req, res) => {
             res.status(400).send('Prezzo del prodotto non valido')
             return
         }
-        if (req.file === undefined || req.body.foto === null) {
+        /*if (req.file === undefined || req.file === null) {
             console.log('Foto del prodotto non valida')
             res.status(400).send('Foto del prodotto non valida')
             return
-        }
+        }*/
 
         //se i dati passati nel body della richiesta sono validi li salvo in alcune variabili
-        const { nome, ingredienti, prezzo, foto} = req.body
-        /*
-        upload(req.body.foto, res, (err) => {
+        const { nome, ingredienti, prezzo} = req.body
+        
+        upload(req, res, (err) => {
             if (err) {
-                res.sendStatus(500);
+                return res.status(500).send("Errore upload foto");
             }
-        })*/
+        })
 
         //creo l'oggetto prodotto
         let prodotto = new Prodotto({
             nome,
             ingredienti,
             prezzo,
-            foto
+            foto: "images/"+nome
         })
 
         //salvo il nuovo prodotto nel db
@@ -294,20 +293,20 @@ router.patch('', (req, res) => {
             res.status(400).send('Prezzo del prodotto non valido')
             return
         }
-        if (req.body.foto === undefined || validator.isEmpty(req.body.foto) || req.body.foto === null) {
+        /*if (req.body.foto === undefined || validator.isEmpty(req.body.foto) || req.body.foto === null) {
             console.log('Foto del prodotto non valida')
             res.status(400).send('Foto del prodotto non valida')
             return
         }
-
+        */
         //se i dati passati nel body della richiesta sono validi li salvo in alcune variabili
-        const { id, nome, ingredienti, prezzo, foto } = req.body
+        const { _id, nome, ingredienti, prezzo } = req.body
 
         //cerco il prodotto nel db attraverso l'id e quando lo trovo, aggiorno i dati
         Prodotto.findOneAndUpdate({
-            "_id": id
+            "_id": _id
         }, {
-            $set: { "nome": nome, "ingredienti": ingredienti, "prezzo": prezzo, "foto": foto }
+            $set: { "nome": nome, "ingredienti": ingredienti, "prezzo": prezzo }
         })
             .then(() => {
                 //se va a buon fine, restituisco il codice 200
