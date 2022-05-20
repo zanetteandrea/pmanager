@@ -110,13 +110,13 @@ var validator = require('validator')
 
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
-      cb(null, 'images/')
+        cb(null, 'images/')
     },
     filename: (req, file, cb) => {
-      cb(null, file.originalname)
+        cb(null, file.originalname)
     }
-  })
-  
+})
+
 const upload = multer({ storage: storage }).single('file')
 
 
@@ -132,31 +132,31 @@ router.get('', (req, res) => {
 
 //API che permette l'aggiunta di un nuovo prodotto nel sistema
 router.post('', (req, res) => {
-    if(req.auth.ruolo == ruoli.AMM){
+    if (req.auth.ruolo == ruoli.AMM) {
         //controllo la validità dei dati, se i dati non sono validi restituisco il codice 400
-        if( req.body.nome === undefined || validator.isEmpty(req.body.nome) || req.body.nome === null){
+        if (req.body.nome === undefined || validator.isEmpty(req.body.nome) || req.body.nome === null) {
             console.log('Nome del prodotto non valido')
             res.status(400).send('Nome del prodotto non valido')
             return
         }
-        if(req.body.ingredienti === undefined || !Array.isArray(req.body.ingredienti) || req.body.ingredienti === null){
+        if (req.body.ingredienti === undefined || !Array.isArray(req.body.ingredienti) || req.body.ingredienti === null) {
             console.log('Ingredienti del prodotto non validi')
             res.status(400).send('Ingredienti del prodotto non validi')
             return
         }
-        if(req.body.prezzo === undefined || isNaN(req.body.prezzo) || req.body.prezzo === null){
+        if (req.body.prezzo === undefined || isNaN(req.body.prezzo) || req.body.prezzo === null) {
             console.log('Prezzo del prodotto non valido')
             res.status(400).send('Prezzo del prodotto non valido')
             return
         }
-        if(req.body.foto === undefined || req.body.foto === null){
+        if (req.file === undefined || req.body.foto === null) {
             console.log('Foto del prodotto non valida')
             res.status(400).send('Foto del prodotto non valida')
             return
         }
 
         //se i dati passati nel body della richiesta sono validi li salvo in alcune variabili
-        const { nome, ingredienti, prezzo} = req.body
+        const { nome, ingredienti, prezzo } = req.body
 
         upload(req.body.foto, res, (err) => {
             if (err) {
@@ -174,81 +174,82 @@ router.post('', (req, res) => {
 
         //salvo il nuovo prodotto nel db
         prodotto = prodotto.save()
-        .then(() => {
-            //se il salvataggio è andato a buon fine restituisco il codice 201
-            console.log('Prodotto salvato con successo')
-            res.status(201).send('Prodotto salvato con successo')
-        })
-        .catch((err) =>{
-            //se il salvataggio non è andato a buon fine restituisco il codice 400
-            console.log("Errore salvataggio nuovo prodotto: " + err)
-            res.status(400).send("Errore salvataggio nuovo prodotto: " + err)
-        })
-    }else{
+            .then(() => {
+                //se il salvataggio è andato a buon fine restituisco il codice 201
+                console.log('Prodotto salvato con successo')
+                res.status(201).send('Prodotto salvato con successo')
+            })
+            .catch((err) => {
+                //se il salvataggio non è andato a buon fine restituisco il codice 400
+                console.log("Errore salvataggio nuovo prodotto: " + err)
+                res.status(400).send("Errore salvataggio nuovo prodotto: " + err)
+            })
+    } else {
         res.status(401).send("Unauthorized access")
     }
-    
+
 })
 
 
 //API per l'eliminazione di un prodotto nel sistema
-router.delete('', (req, res) => {
-    if(req.auth.ruolo == ruoli.AMM){
+router.delete('/:id', (req, res) => {
+    if (req.auth.ruolo == ruoli.AMM) {
+
+        //salvo id in una variabile
+        const id = req.params.id
+
         //controllo la validità dell'id, se non è valido ritorno il codice 400
-        if(validator.isEmpty(id) || id === null || id === undefined){
+        if (validator.isEmpty(id) || id === null || id === undefined) {
             console.log('Id del prodotto non valido')
             res.status(400).send('Id del prodotto non valido')
             return
         }
 
-        //se l'id passato nel body della richiesta è valido, lo salvo in una variabile
-        const id = req.body.id
-
         //cerco quel prodotto nel db
         Prodotto.findById(id)
-        .then((prodotto) => {
-            //se lo trovo, lo elimino
-            prodotto.deleteOne()
-            .then(() => {
-                //se l'eliminazione va a buon fine, restituisco il codice 204
-                console.log('Prodotto eliminato con successo')
-                res.status(204).send('Prodotto eliminato con successo')
+            .then((prodotto) => {
+                //se lo trovo, lo elimino
+                prodotto.deleteOne()
+                    .then(() => {
+                        //se l'eliminazione va a buon fine, restituisco il codice 204
+                        console.log('Prodotto eliminato con successo')
+                        res.status(204).send('Prodotto eliminato con successo')
+                    })
+                    .catch((err) => {
+                        //se l'eliminazione non va a buon fine, restituisco il codice 404
+                        console.log('Eliminazione non riuscita: ' + err)
+                        res.status(404).send('Eliminazione non riuscita: ' + err)
+                    })
             })
             .catch((err) => {
-                //se l'eliminazione non va a buon fine, restituisco il codice 404
-                console.log('Eliminazione non riuscita: ' + err)
-                res.status(404).send('Eliminazione non riuscita: ' + err)
+                //se non lo trovo, restituisco il codice 404
+                console.log("Prodotto non trovato: " + err)
+                res.status(404).send("Prodotto non trovato: " + err)
             })
-        })
-        .catch((err) => {
-            //se non lo trovo, restituisco il codice 404
-            console.log("Prodotto non trovato: " + err)
-            res.status(404).send("Prodotto non trovato: " + err)
-        })
     }
 })
 
 
 //API per modificare un prodotto presente nel catalogo
 router.patch('', (req, res) => {
-    if(req.auth.ruolo == ruoli.AMM){
+    if (req.auth.ruolo == ruoli.AMM) {
         //controllo la validità dei dati, se non sono validi restituisco il codice 400
-        if( req.body.nome === undefined || validator.isEmpty(req.body.nome) || req.body.nome === null){
+        if (req.body.nome === undefined || validator.isEmpty(req.body.nome) || req.body.nome === null) {
             console.log('Nome del prodotto non valido')
             res.status(400).send('Nome del prodotto non valido')
             return
         }
-        if(req.body.ingredienti === undefined || !Array.isArray(req.body.ingredienti) || req.body.ingredienti === null){
+        if (req.body.ingredienti === undefined || !Array.isArray(req.body.ingredienti) || req.body.ingredienti === null) {
             console.log('Ingredienti del prodotto non validi')
             res.status(400).send('Ingredienti del prodotto non validi')
             return
         }
-        if(req.body.prezzo === undefined || isNaN(req.body.prezzo) || req.body.prezzo === null){
+        if (req.body.prezzo === undefined || isNaN(req.body.prezzo) || req.body.prezzo === null) {
             console.log('Prezzo del prodotto non valido')
             res.status(400).send('Prezzo del prodotto non valido')
             return
         }
-        if(req.body.foto === undefined || validator.isEmpty(req.body.foto) || req.body.foto === null){
+        if (req.body.foto === undefined || validator.isEmpty(req.body.foto) || req.body.foto === null) {
             console.log('Foto del prodotto non valida')
             res.status(400).send('Foto del prodotto non valida')
             return
@@ -259,20 +260,20 @@ router.patch('', (req, res) => {
 
         //cerco il prodotto nel db attraverso l'id e quando lo trovo, aggiorno i dati
         Prodotto.findOneAndUpdate({
-            "_id" : id
-        },{
-            $set: {"nome" : nome, "ingredienti": ingredienti, "prezzo": prezzo, "foto": foto}
+            "_id": id
+        }, {
+            $set: { "nome": nome, "ingredienti": ingredienti, "prezzo": prezzo, "foto": foto }
         })
-        .then(() => {
-            //se va a buon fine, restituisco il codice 200
-            console.log('Prodotto modificato con successo')
-            res.status(200).send('Prodotto modificato con successo')
-        })
-        .catch((err) => {
-            //se non va a buon fine, restituisco il codice 404
-            console.log('Prodotto non trovato: ' + err)
-            res.status(404).send('Prodotto non trovato: ' + err)
-        })
+            .then(() => {
+                //se va a buon fine, restituisco il codice 200
+                console.log('Prodotto modificato con successo')
+                res.status(200).send('Prodotto modificato con successo')
+            })
+            .catch((err) => {
+                //se non va a buon fine, restituisco il codice 404
+                console.log('Prodotto non trovato: ' + err)
+                res.status(404).send('Prodotto non trovato: ' + err)
+            })
     }
 })
 

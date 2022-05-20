@@ -1,7 +1,8 @@
 const express = require('express');
 const app = express();
-const auth = require("./auth.js");
 const cors = require("cors")
+const auth = require("./auth.js");
+const prodotti = require("./prodotti.js")
 
 /**
  * Configure Express.js parsing middleware

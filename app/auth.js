@@ -140,7 +140,6 @@ router.post("/login", (req, res) => {
 })
 
 router.all("/*", (req, res, next) => {
-    console.log("entro anche qui")
     // check header or url parameters or post parameters for token
     var token = req.body.token || req.query.token || req.headers['x-access-token'];
     // if there is no token
