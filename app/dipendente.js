@@ -168,7 +168,7 @@ function check_duplicate(dip) {
 // ADD GET DIPENDENTI
 router.get('', (req,res) => {
     if(req.auth.ruolo == ruoli.AMM) {
-        Rivenditore.find().select("_id ruolo nome email telefono")
+        Dipendente.find().select("_id ruolo nome email telefono")
         .then((prod) => {
             return res.status(200).json(prod)
         })
