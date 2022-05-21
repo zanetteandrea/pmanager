@@ -77,14 +77,14 @@ const sendCredentials = (nome, email, password) => {
 const register = (utente) => {
     return new Promise((resolve, reject) => {
         let password = Math.random().toString(36).slice(-8)
-        console.log("Password generata: ", password)
+        console.log("Password generata:", password)
         sendCredentials(utente.nome, utente.email, password)
             .then(() => {
                 utente.hash_pw = bcrypt.hashSync(password)
                 utente.first_access = true
                 utente.save()
-                    .then(() => {
-                        resolve()
+                    .then((user) => {
+                        resolve(user)
                     })
                     .catch(() => {
                         console.log("Errore salvataggio")

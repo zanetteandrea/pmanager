@@ -166,7 +166,7 @@ function check_dati(req){
 //dico dove salvare le immagini e con quale nome
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
-        cb(null, 'images/')
+        cb(null, '/images/')
     },
     filename: (req, file, cb) => {
         cb(null, req.params.id+'.png')
@@ -282,7 +282,7 @@ router.post("/:id", upload.single('image'), (req, res) => {
                 res.status(404).send('Prodotto non trovato')
             })
     } catch (err) {
-        //se non riesco a trovare il prodotto, ritorno il codice 404
+        //se non riesco a trovare il prodotto, ritorno il codice 500
         return res.status(500).send("Errore salvataggio foto");
     }
 })
