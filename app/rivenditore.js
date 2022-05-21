@@ -1,9 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const Rivenditore = require('./models/Rivenditore'); // get our mongoose model
-//const Utente = require('./models/utente'); // get our mongoose model
+const Rivenditore = require('./models/Rivenditore') // get our mongoose model
+const Utente = require('./models/Utente')
 const validator = require('validator');
-//const register = require('./auth')
 const auth = require('./auth');
 const ruoli = require('./models/ruoli');
 /**
@@ -128,17 +127,17 @@ function check_fields(riv) {
     checks.valid = true
 
     // CHECK FIELD NAME
-    if(riv.nome.length<=2){
+    if (riv.nome.length <= 2) {
         checks.data = "nome"
         checks.valid = false
     }
     // CHECK FIELD EMAIL
-    if(!validator.isEmail(riv.email)) {
+    if (!validator.isEmail(riv.email)) {
         checks.data = "email"
         checks.valid = false
     }
     // CHECK FIELD TELEFONO
-    if(!validator.isInt(riv.telefono)) {
+    if (validator.isEmpty(riv.telefono)) {
         checks.data = "telefono"
         checks.valid = false
     }
@@ -147,27 +146,27 @@ function check_fields(riv) {
 
     // CHECK ALL PARTS OF ADDRESS
     let via_fields = via.split(" ")
-    via_fields.forEach( x => { 
-        if(!validator.isAlpha(x)){ 
+    via_fields.forEach(x => {
+        if (!validator.isAlpha(x)) {
             checks.data = "indirizzo"
             checks.valid = false
-        } 
+        }
     })
 
     // CHECK FIELD CAP
-    if(!validator.isInt(cap)){
+    if (!validator.isPostalCode(cap, 'IT')) {
         checks.data = "cap"
         checks.valid = false
-    }   
-    
+    }
+
     // CHECK FIELD CIVIC
-    if(!validator.isInt(civico)) {
+    if (!validator.isInt(civico)) {
         checks.data = "civico"
         checks.valid = false
     }
 
     // CHECK FIELD CITY
-    if(!validator.isAlpha(citta)){
+    if (validator.isEmpty(citta)) {
         checks.data = "citta"
         checks.valid = false
     }
@@ -177,24 +176,23 @@ function check_fields(riv) {
 
 // Check if email is already in the system
 function check_duplicate(riv) {
-
-    return Rivenditore.find({ email: riv.email}).then((riv)=>{
+    return Utente.find({ email: riv.email }).then((riv) => {
         if (!riv.length) {
             return false
-         } else {
+        } else {
             return true
-         }
+        }
     })
 }
 
 // ADD GET RIVENDITORI
-router.get('', (req,res) => {
-    if(req.auth.ruolo == ruoli.AMM) {
-        Rivenditore.find().select("_id indirizzo catalogo nome email telefono")
-        .then((prod) => {
-            return res.status(200).json(prod)
-        })
-    }else{
+router.get('', (req, res) => {
+    if (req.auth.ruolo == ruoli.AMM) {
+        Rivenditore.find().select("-hash_pw -first_access")
+            .then((riv) => {
+                return res.status(200).send(riv)
+            })
+    } else {
         return res.status(401).send('Accesso non Autorizzato');
     }
 })
@@ -202,8 +200,8 @@ router.get('', (req,res) => {
 // ADD NEW RIVENDITORE
 router.post('', (req, res) => {
 
-    if(req.auth.ruolo == ruoli.AMM) {
-        const {nome, email, telefono, indirizzo, catalogo} = req.body
+    if (req.auth.ruolo == ruoli.AMM) {
+        const { nome, email, telefono, indirizzo, catalogo } = req.body
 
         let rivenditore = new Rivenditore({
             nome,
@@ -213,27 +211,28 @@ router.post('', (req, res) => {
             catalogo,
             ruolo: ruoli.RIVENDITORE
         });
-        
-        check_duplicate(rivenditore).then((duplicate)=>{
-            if(duplicate){
-                res.status(400).send('rivenditore già presente');
-                return;
-            }
-            let check = check_fields(rivenditore) 
-            if(!check.valid) {
-                res.status(400).send(`Campo [${check.data}] non valido`);
-            } else {
-                auth.register(rivenditore)
-                .then(()=>{
-                    res.status(201).send('rivenditore salvato con successo');
-                })
-                .catch(()=>{
-                    res.status(400).send('errore durante il salvataggio');
-                })
 
-            }
+        check_duplicate(rivenditore)
+                .then((duplicate) => {
+                if (duplicate) {
+                    res.status(400).send('Email già presente nel sistema');
+                    return;
+                }
+                let check = check_fields(rivenditore)
+                if (!check.valid) {
+                    res.status(400).send(`Campo [${check.data}] non valido`);
+                } else {
+                    auth.register(rivenditore)
+                        .then((riv) => {
+                            res.status(201).send(riv);
+                        })
+                        .catch(() => {
+                            res.status(400).send('Errore durante il salvataggio');
+                        })
 
-        })
+                }
+
+            })
     } else {
         res.status(401).send('Accesso non Autorizzato');
     }
@@ -245,13 +244,13 @@ router.delete('/:id', async (req, res) => {
 
     const _id = req.params.id
     let rivenditore = await Rivenditore.findById(_id).exec();
-    if(!rivenditore) {
+    if (!rivenditore) {
         res.status(404).send("Rivenditore Non Presente");
         return;
     }
-    try{
+    try {
         await rivenditore.deleteOne()
-        res.status(204).send("rivendenditore rimosso");
+        res.status(204).send("Rivendenditore rimosso");
     } catch {
         res.status(400).send("Errore durante la rimozione");
     }
@@ -261,7 +260,7 @@ router.delete('/:id', async (req, res) => {
 //UPDATE DATA RIVENDITORE
 router.patch('', (req, res) => {
 
-    const {_id, nome, email, telefono, indirizzo, catalogo} = req.body
+    const { _id, nome, email, telefono, indirizzo, catalogo } = req.body
 
     let rivenditore = new Rivenditore({
         nome,
@@ -272,23 +271,23 @@ router.patch('', (req, res) => {
     });
 
     let check = check_fields(rivenditore)
-    if(!check.valid) {
+    if (!check.valid) {
         res.status(400).send(`Campo [${check.data}] non valido`);
     } else {
         Rivenditore.findOneAndUpdate({
-            "_id" : _id
-        },{
-            $set: {"nome" : rivenditore.nome, "email": rivenditore.email, "telefono": rivenditore.telefono, "indirizzo": rivenditore.indirizzo, "catalogo": rivenditore.catalogo}
+            "_id": _id
+        }, {
+            $set: { "nome": rivenditore.nome, "email": rivenditore.email, "telefono": rivenditore.telefono, "indirizzo": rivenditore.indirizzo, "catalogo": rivenditore.catalogo }
         })
-        .then(() => {
-            res.status(200).send('Rivenditore modificato con successo') 
-        }).catch(() => {
-            res.status(404).send('Rivenditore non trovato')
-            return;
-        })
+            .then(() => {
+                res.status(200).send('Rivenditore modificato con successo')
+            }).catch(() => {
+                res.status(404).send('Rivenditore non trovato')
+                return;
+            })
 
-        
-    } 
+
+    }
 
 });
 
