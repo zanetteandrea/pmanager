@@ -163,6 +163,28 @@ function check_dati(req){
     return ris;
 }
 
+
+//funzione per verificare che non si aggiungano prodotti con lo stesso nome
+function check_duplicate(req, nomi){
+    let ris = false
+    //normalizzo tutti i nomi dei prodotti presenti nel sistema
+    for(var i=0;i<nomi.length;i++){
+        nomi[i] = nomi[i].split(" ").join("")
+        nomi[i] = nomi[i].toLowerCase()
+    }
+    //normalizzo il nome ricevuto nel body della richiesta
+    var nuovo = req.body.nome.split(" ").join("")
+    nuovo = nuovo.toLowerCase()
+    //verifico l'univocità del nome
+    nomi.forEach((nome) => {
+        if(nuovo == nome){
+            ris = true;  
+        }
+    })
+    return ris;
+}
+
+
 //dico dove salvare le immagini e con quale nome
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
@@ -233,6 +255,14 @@ router.post('', async(req, res) => {
         var ris = check_dati(req)
         if(!ris.valid){
             res.status(400).send('Campo ' + ris.data + ' non valido')
+            return
+        }
+
+        //richiedo tutti i prodotti presenti nel database e mappo i nomi in un nuovo array che passo alla funzione check_duplicate
+        let prod = await Prodotto.find().exec()
+        let nomi = prod.map(elem => elem.nome)
+        if(check_duplicate(req,nomi)){
+            res.status(400).send('Esiste già un prodotto con questo nome')
             return
         }
 
@@ -338,6 +368,21 @@ router.patch('', async(req, res) => {
         var ris = check_dati(req)
         if(!ris.valid){
             res.status(400).send('Campo ' + ris.data + ' non valido')
+            return
+        }
+
+        //richiedo tutti i prodotti presenti nel database e mappo tutti i nomi tranne quello del prodotto di cui si vuole fare la modifica
+        //in un nuovo array che passo alla funzione check_duplicate
+        let prod = await Prodotto.find().exec()
+        let nomi = [], index = 0;
+        prod.forEach((elem)=>{
+            if(elem._id != req.body._id){
+                nomi[index] = elem.nome
+                index++
+            }
+        })
+        if(check_duplicate(req, nomi)){
+            res.status(400).send('Esiste già un prodotto con questo nome')
             return
         }
 
