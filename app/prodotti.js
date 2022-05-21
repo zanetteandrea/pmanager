@@ -1,10 +1,10 @@
 const express = require('express')
 const router = express.Router()
-const Prodotto = require('./models/prodotto') // get our mongoose model
-const ruoli = require("./models/ruoli")
+const Prodotto = require('./models/Prodotto') // get our mongoose model
+const ruoli = require("./models/Ruoli")
 const multer = require('multer')
 var validator = require('validator')
-const Rivenditore = require('./models/rivenditore')
+const Rivenditore = require('./models/Rivenditore')
 
 /**
  * @swagger
@@ -92,6 +92,27 @@ const Rivenditore = require('./models/rivenditore')
  *         description: Dati inseriti non validi
  *       404:
  *         description: Prodotto non trovato
+ *
+ * /prodotti/:id:
+ *   post:
+ *     summary: Salva la foto di un prodotto 
+ *     paths: 
+ *       /prodotti/{id}
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         description: L'id del prodotto della foto
+ *         required: true
+ *     schema: 
+ *       type: string
+ *     responses:
+ *       200:
+ *         description: Foto memorizzata con successo
+ *       404:
+ *         description: Prodotto non trovato
+ *       500:
+ *         description: Upload foto fallito
+ * 
  * 
  * /prodotti/id:
  *   delete:
@@ -114,6 +135,35 @@ const Rivenditore = require('./models/rivenditore')
  *         description: Prodotto non trovato
 */
 
+
+//funzione per controllare la validità dei dati ricevuti
+function check_dati(req){
+    var ris = {
+        valid: Boolean,
+        data: String
+    }
+    //controllo il nome
+    if (req.body.nome === undefined || validator.isEmpty(req.body.nome) || req.body.nome === null) {
+        console.log('Nome del prodotto non valido')
+        ris.data = "nome"
+        ris.valid = false;
+    }
+    //controllo gli ingredienti
+    if (req.body.ingredienti === undefined || !Array.isArray(req.body.ingredienti) || req.body.ingredienti === null) {
+        console.log('Ingredienti del prodotto non validi')
+        ris.data = "ingredienti"
+        ris.valid = false;
+    }
+    //controllo il prezzo
+    if (req.body.prezzo === undefined || isNaN(req.body.prezzo) || req.body.prezzo === null) {
+        console.log('Prezzo del prodotto non valido')
+        ris.data = "prezzo"
+        ris.valid = false;
+    }
+    return ris;
+}
+
+//dico dove salvare le immagini e con quale nome
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
         cb(null, 'images/')
@@ -155,6 +205,7 @@ router.get('', (req, res) => {
                         })
                         res.status(200).json(listaProdotti)
                     })
+                    //se non li trovo, vuol dire che i prodotti non sono presenti nel sistema => restituisco il codice 404
                     .catch((err) => {
                         console.log('Prodotti non trovati')
                         res.status(404).send('Prodotti non trovati')
@@ -175,23 +226,13 @@ router.get('', (req, res) => {
 
 
 //API che permette l'aggiunta di un nuovo prodotto nel sistema
-router.post('', (req, res) => {
+router.post('', async(req, res) => {
     //controllo che sia stato l'AMM a fare la richiesta
     if (req.auth.ruolo == ruoli.AMM) {
         //controllo la validità dei dati, se i dati non sono validi restituisco il codice 400
-        if (req.body.nome === undefined || validator.isEmpty(req.body.nome) || req.body.nome === null) {
-            console.log('Nome del prodotto non valido')
-            res.status(400).send('Nome del prodotto non valido')
-            return
-        }
-        if (req.body.ingredienti === undefined || !Array.isArray(req.body.ingredienti) || req.body.ingredienti === null) {
-            console.log('Ingredienti del prodotto non validi')
-            res.status(400).send('Ingredienti del prodotto non validi')
-            return
-        }
-        if (req.body.prezzo === undefined || isNaN(req.body.prezzo) || req.body.prezzo === null) {
-            console.log('Prezzo del prodotto non valido')
-            res.status(400).send('Prezzo del prodotto non valido')
+        var ris = check_dati(req)
+        if(!ris.valid){
+            res.status(400).send('Campo ' + ris.data + ' non valido')
             return
         }
 
@@ -218,22 +259,17 @@ router.post('', (req, res) => {
                 res.status(400).send("Errore salvataggio nuovo prodotto: " + err)
             })
     } else {
+        //se la richiesta viene da utente che non è l'AMM, restituisco il codice 401
         res.status(401).send("Unauthorized access")
     }
 
 })
 
 
+//API per l'upload della foto del prodotto
 router.post("/:id", upload.single('image'), (req, res) => {
-    console.log("Entro nell'upload", req.params.id)
     try {
-        /*
-        upload(req, res, (err) => {
-            if (err) {
-                return res.status(500).send("Errore upload foto");
-            }
-        })
-        */
+        //cerco nel db il prodotto il cui id è passato come parametro nel url, se lo trovo modifico il valore del campo 'foto' con il percorso relativo di dove è salvata l'immagine nel server
         Prodotto.findOneAndUpdate({
             "_id": req.params.id
         }, {
@@ -242,8 +278,12 @@ router.post("/:id", upload.single('image'), (req, res) => {
             .then(() => {
                 res.status(200).send('Immagine salvata con successo')
             })
+            .catch(() => {
+                res.status(404).send('Prodotto non trovato')
+            })
     } catch (err) {
-        return res.status(500).send("Errore upload foto");
+        //se non riesco a trovare il prodotto, ritorno il codice 404
+        return res.status(500).send("Errore salvataggio foto");
     }
 })
 
@@ -271,42 +311,36 @@ router.delete('/:id', (req, res) => {
                         //se l'eliminazione va a buon fine, restituisco il codice 204
                         console.log('Prodotto eliminato con successo')
                         res.status(204).send('Prodotto eliminato con successo')
+                        return
                     })
                     .catch((err) => {
                         //se l'eliminazione non va a buon fine, restituisco il codice 404
                         console.log('Eliminazione non riuscita: ' + err)
                         res.status(404).send('Eliminazione non riuscita: ' + err)
+                        return
                     })
             })
             .catch((err) => {
                 //se non lo trovo, restituisco il codice 404
                 console.log("Prodotto non trovato: " + err)
                 res.status(404).send("Prodotto non trovato: " + err)
+                return
             })
     }
 })
 
 
 //API per modificare un prodotto presente nel catalogo
-router.patch('', (req, res) => {
+router.patch('', async(req, res) => {
     //controllo che sia stato l'AMM a fare la richiesta
     if (req.auth.ruolo == ruoli.AMM) {
         //controllo la validità dei dati, se non sono validi restituisco il codice 400
-        if (req.body.nome === undefined || validator.isEmpty(req.body.nome) || req.body.nome === null) {
-            console.log('Nome del prodotto non valido')
-            res.status(400).send('Nome del prodotto non valido')
+        var ris = check_dati(req)
+        if(!ris.valid){
+            res.status(400).send('Campo ' + ris.data + ' non valido')
             return
         }
-        if (req.body.ingredienti === undefined || !Array.isArray(req.body.ingredienti) || req.body.ingredienti === null) {
-            console.log('Ingredienti del prodotto non validi')
-            res.status(400).send('Ingredienti del prodotto non validi')
-            return
-        }
-        if (req.body.prezzo === undefined || isNaN(req.body.prezzo) || req.body.prezzo === null) {
-            console.log('Prezzo del prodotto non valido')
-            res.status(400).send('Prezzo del prodotto non valido')
-            return
-        }
+
         //se i dati passati nel body della richiesta sono validi li salvo in alcune variabili
         const { _id, nome, ingredienti, prezzo } = req.body
 
@@ -320,13 +354,16 @@ router.patch('', (req, res) => {
                 //se va a buon fine, restituisco il codice 200
                 console.log('Prodotto modificato con successo')
                 res.status(200).send('Prodotto modificato con successo')
+                return
             })
             .catch((err) => {
                 //se non va a buon fine, restituisco il codice 404
                 console.log('Prodotto non trovato: ' + err)
                 res.status(404).send('Prodotto non trovato: ' + err)
+                return
             })
     }
 })
+
 
 module.exports = router
