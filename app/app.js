@@ -2,6 +2,8 @@ const express = require('express');
 const app = express();
 const cors = require("cors")
 const auth = require("./auth.js");
+const prodotti = require("./prodotti.js")
+const rivenditore = require("./rivenditore.js")
 swaggerJsdoc = require("swagger-jsdoc");
 swaggerUi = require("swagger-ui-express");
 require('dotenv').config()
@@ -37,14 +39,6 @@ app.use(express.json())
 app.use(cors())
 app.use(express.urlencoded({ extended: true }))
 
-const rivenditore = require('./rivenditore.js')
-
-/**
- * Configure Express.js parsing middleware
- */
-app.use(express.json());
-app.use(cors());
-app.use(express.urlencoded({ extended: true }));
 app.use(
     "/api-docs",
     swaggerUi.serve,
@@ -52,5 +46,8 @@ app.use(
 )
 app.use(auth.router);
 app.use('/api/v1/rivenditore', rivenditore);
+app.use('/api/v1/prodotti', prodotti)
+
+app.use('/images', express.static('/images'))
 
 module.exports = app;
