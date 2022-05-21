@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const Dipendente = require('./models/Dipendente'); // get our mongoose model
-//const Utente = require('./models/utente'); // get our mongoose model
+
 const validator = require('validator');
-//const register = require('./auth')
+
 const auth = require('./auth');
 const ruoli = require('./models/ruoli');
 /**
@@ -165,7 +165,17 @@ function check_duplicate(dip) {
         }
     })
 }
-
+// ADD GET DIPENDENTI
+router.get('', (req,res) => {
+    if(req.auth.ruolo == ruoli.AMM) {
+        Rivenditore.find().select("_id ruolo nome email telefono")
+        .then((prod) => {
+            return res.status(200).json(prod)
+        })
+    }else{
+        return res.status(401).send('Accesso non Autorizzato');
+    }
+})
 // ADD NEW DIPENDENTE
 router.post('', (req, res) => {
 
@@ -262,5 +272,6 @@ router.patch('', (req, res) => {
     }
 
 });
+
 
 module.exports = router;
