@@ -187,6 +187,18 @@ function check_duplicate(riv) {
     })
 }
 
+// ADD GET RIVENDITORI
+router.get('', (req,res) => {
+    if(req.auth.ruolo == ruoli.AMM) {
+        Rivenditore.find().select("_id indirizzo catalogo nome email telefono")
+        .then((prod) => {
+            return res.status(200).json(prod)
+        })
+    }else{
+        return res.status(401).send('Accesso non Autorizzato');
+    }
+})
+
 // ADD NEW RIVENDITORE
 router.post('', (req, res) => {
 
@@ -231,7 +243,7 @@ router.post('', (req, res) => {
 // DELETE RIVENDITORE
 router.delete('/:id', async (req, res) => {
 
-    const _id = req.params
+    const _id = req.params.id
     let rivenditore = await Rivenditore.findById(_id).exec();
     if(!rivenditore) {
         res.status(404).send("Rivenditore Non Presente");
