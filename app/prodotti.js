@@ -10,25 +10,33 @@ const Rivenditore = require('./models/Rivenditore')
  * @swagger
  * /prodotti:
  *   get:
- *     summary: Ritorna tutti i prodotti presenti nel sistema, se la richiesta è effettuata dall'AMM, o quelli visibili dal rivenditore che effettua la richiesta in formato json 
+ *     description: Nel caso in cui la richiesta avvenga da parte dell'AMM, questa API ritorna tutti i prodotti presenti nel sistema. Nel caso in cui il richiedente sia un rivenditore, ritorna tutti i prodotti da lui visibili. In tutti gli altri casi l'accesso a questa API non è autorizzato
+ *     summary: Ritorna i prodotti in formato json 
+ *     parameters:
+ *       - in: header
+ *         name: x-access-token
+ *         description: token per effettuare l'accesso controllato
  *     responses:
  *       200:
- *         description: Prodotti ricevuti
+ *         description: Richiesta evasa con successo, ritorna i prodotti in formato json
  *         content:
  *           application/json:
  *             schema:
  *                type: array
  *                description: ingredienti del prodotto
  *                example: {"_id": "6284eb9ac1e5c03bd845a60a", "nome": "pane2", "ingredienti": [{"nome": "farina","quantita": 300,"udm": "gr","_id": "6284eb9ac1e5c03bd845a60b"}], "prezzo": 1.3, "foto": "/images/mantovana.jpg"} 
- *       400:
- *         description: Ruolo non valido
  *       401:
  *         description: Accesso non autorizzato
  *       404:
- *         description: Prodotto o rivenditore non trovato nel database
+ *         description: Prodotti o rivenditore non presenti nel database
  * 
  *   post:
+ *     description: API che permette l'aggiunta di un nuovo prodotto nel sistema. I dati di tale prodotto devono essere passati nel body della richiesta
  *     summary: Crea un nuovo prodotto
+ *     parameters:
+ *       - in: header
+ *         name: x-access-token
+ *         description: token per effettuare l'accesso controllato
  *     requestBody:
  *       required: true
  *       content:
@@ -48,17 +56,21 @@ const Rivenditore = require('./models/Rivenditore')
  *                 type: float
  *                 description: Prezzo del prodotto.
  *                 example: 1.3
- *               "foto":
- *                 type: object
- *                 description: Foto del prodotto
  *     responses:
  *       201:
  *         description: Prodotto creato con successo
  *       400:
  *         description: Dati del prodotto inseriti non validi
+ *       401:
+ *         description: Accesso non autorizzato
  * 
  *   patch:
+ *     description: API che permette la modifica di un prodotto, il cui id deve essere passato attraverso l'url
  *     summary: Modifica un prodotto
+ *     parameters:
+ *       - in: header
+ *         name: x-access-token
+ *         description: token per effettuare l'accesso controllato
  *     requestBody:
  *       required: true
  *       content:
@@ -66,8 +78,8 @@ const Rivenditore = require('./models/Rivenditore')
  *           schema:
  *             type: object
  *             properties:
- *               "id":
- *                 type: object
+ *               "_id":
+ *                 type: string
  *                 description: id del prodotto
  *                 example: "6284a31ef6e9638dcb7985e1"
  *               "nome":
@@ -82,9 +94,6 @@ const Rivenditore = require('./models/Rivenditore')
  *                 type: float
  *                 description: prezzo del prodotto
  *                 example: 1.5
- *               "foto":
- *                 type: object
- *                 description: Foto del prodotto
  *     responses:
  *       200:
  *         description: Prodotto modificato con successo
@@ -92,19 +101,33 @@ const Rivenditore = require('./models/Rivenditore')
  *         description: Dati inseriti non validi
  *       404:
  *         description: Prodotto non trovato
+ *       409:
+ *         description: Prodotto già presente con questo nome
  *
  * /prodotti/:id:
  *   post:
+ *     description: Salva la foto del prodotto il cui id è passato come parametro nell'url
  *     summary: Salva la foto di un prodotto 
  *     paths: 
  *       /prodotti/{id}
  *     parameters:
+ *       - in: header
+ *         name: x-access-token
+ *         description: token per effettuare l'accesso controllato
  *       - in: path
  *         name: id
  *         description: L'id del prodotto della foto
  *         required: true
+ *         example: "/62876144f494b63071fb3e3b"
  *     schema: 
  *       type: string
+ *     requestBody:
+ *       required: true
+ *       content: 
+ *         image/png:
+ *           schema:
+ *             type: string
+ *             format: binary
  *     responses:
  *       200:
  *         description: Foto memorizzata con successo
@@ -114,16 +137,20 @@ const Rivenditore = require('./models/Rivenditore')
  *         description: Upload foto fallito
  * 
  * 
- * /prodotti/id:
  *   delete:
+ *     description: API che permette l'eliminazione di un prodotto, il cui id deve essere passato come parametro nell'url
  *     summary: Elimina un prodotto
  *     paths: 
  *       /prodotti/{id}
  *     parameters:
+ *       - in: header
+ *         name: x-access-token
+ *         description: token per effettuare l'accesso controllato
  *       - in: path
  *         name: id
  *         description: L'id del prodotto da eliminare
  *         required: true
+ *         example: "/62876144f494b63071fb3e3b"
  *     schema: 
  *       type: string
  *     responses:
@@ -133,6 +160,8 @@ const Rivenditore = require('./models/Rivenditore')
  *         description: Id del prodotto inserito non valido
  *       404:
  *         description: Prodotto non trovato
+ *       500:
+ *         description: Eliminazione non riuscita
 */
 
 
@@ -144,19 +173,16 @@ function check_dati(req){
     }
     //controllo il nome
     if (req.body.nome === undefined || validator.isEmpty(req.body.nome) || req.body.nome === null) {
-        console.log('Nome del prodotto non valido')
         ris.data = "nome"
         ris.valid = false;
     }
     //controllo gli ingredienti
     if (req.body.ingredienti === undefined || !Array.isArray(req.body.ingredienti) || req.body.ingredienti === null) {
-        console.log('Ingredienti del prodotto non validi')
         ris.data = "ingredienti"
         ris.valid = false;
     }
     //controllo il prezzo
     if (req.body.prezzo === undefined || isNaN(req.body.prezzo) || req.body.prezzo === null) {
-        console.log('Prezzo del prodotto non valido')
         ris.data = "prezzo"
         ris.valid = false;
     }
@@ -200,17 +226,15 @@ const upload = multer({ storage: storage })
 
 //API che ritorna tutti i prodotti presenti nel sistema in formato json
 router.get('', (req, res) => {
-    //controllo che il ruolo passato nella richiesta sia valido, in caso negativo restituisco il codice 400
+    //controllo che il ruolo passato nella richiesta sia valido, in caso negativo restituisco il codice 401
     if (req.auth.ruolo === undefined || req.auth.ruolo === null || validator.isEmpty(req.auth.ruolo)) {
-        console.log('Ruolo utente non valido')
-        res.status(400).send('Ruolo utente non valido')
+        res.status(401).send('Ruolo utente non valido')
         return
     }
     //controllo se è stato l'AMM a fare la richiesta
     if (req.auth.ruolo == ruoli.AMM) {
         //richiesta al db
         Prodotto.find().then((prod) => {
-            console.log("Prodotti ricevuti")
             res.status(200).json(prod)
         })
     } else if (req.auth.ruolo == ruoli.RIVENDITORE) { //controllo se è stato un rivenditore a fare la richiesta
@@ -229,7 +253,6 @@ router.get('', (req, res) => {
                     })
                     //se non li trovo, vuol dire che i prodotti non sono presenti nel sistema => restituisco il codice 404
                     .catch((err) => {
-                        console.log('Prodotti non trovati')
                         res.status(404).send('Prodotti non trovati')
                         return
                     })
@@ -237,7 +260,6 @@ router.get('', (req, res) => {
             })
             .catch((err) => {
                 //se non lo trovo, restituisco il codice 404
-                console.log("Rivenditore non trovato: " + err)
                 res.status(404).send("Rivenditore non trovato: " + err)
             })
 
@@ -285,7 +307,6 @@ router.post('', async(req, res) => {
             })
             .catch((err) => {
                 //se il salvataggio non è andato a buon fine restituisco il codice 400
-                console.log("Errore salvataggio nuovo prodotto: " + err)
                 res.status(400).send("Errore salvataggio nuovo prodotto: " + err)
             })
     } else {
@@ -306,13 +327,15 @@ router.post("/:id", upload.single('image'), (req, res) => {
             $set: { "foto": "images/" + req.params.id + ".png" }
         })
             .then(() => {
+                //se il documento nel db viene aggiornato con succcesso, ritorno il codice 200
                 res.status(200).send('Immagine salvata con successo')
             })
             .catch(() => {
+                //se non viene trovato un prodotto con quel id, restituisco il codice 404
                 res.status(404).send('Prodotto non trovato')
             })
     } catch (err) {
-        //se non riesco a trovare il prodotto, ritorno il codice 404
+        //se non riesco a trovare il prodotto, ritorno il codice 500
         return res.status(500).send("Errore salvataggio foto");
     }
 })
@@ -324,7 +347,6 @@ router.delete('/:id', (req, res) => {
     if (req.auth.ruolo == ruoli.AMM) {
         //controllo la validità dell'id, se non è valido ritorno il codice 400
         if (req.params.id === undefined || req.params.id === null || validator.isEmpty(req.params.id)) {
-            console.log('Id del prodotto non valido')
             res.status(400).send('Id del prodotto non valido')
             return
         }
@@ -339,20 +361,17 @@ router.delete('/:id', (req, res) => {
                 prodotto.deleteOne()
                     .then(() => {
                         //se l'eliminazione va a buon fine, restituisco il codice 204
-                        console.log('Prodotto eliminato con successo')
                         res.status(204).send('Prodotto eliminato con successo')
                         return
                     })
                     .catch((err) => {
-                        //se l'eliminazione non va a buon fine, restituisco il codice 404
-                        console.log('Eliminazione non riuscita: ' + err)
-                        res.status(404).send('Eliminazione non riuscita: ' + err)
+                        //se l'eliminazione non va a buon fine, restituisco il codice 500
+                        res.status(500).send('Eliminazione non riuscita: ' + err)
                         return
                     })
             })
             .catch((err) => {
                 //se non lo trovo, restituisco il codice 404
-                console.log("Prodotto non trovato: " + err)
                 res.status(404).send("Prodotto non trovato: " + err)
                 return
             })
@@ -372,7 +391,7 @@ router.patch('', async(req, res) => {
         }
 
         //richiedo tutti i prodotti presenti nel database e mappo tutti i nomi tranne quello del prodotto di cui si vuole fare la modifica
-        //in un nuovo array che passo alla funzione check_duplicate
+        //in un nuovo array che passo alla funzione check_duplicate, se esiste già un prodotto con quel nome, restituisco il codice 409
         let prod = await Prodotto.find().exec()
         let nomi = [], index = 0;
         prod.forEach((elem)=>{
@@ -382,7 +401,7 @@ router.patch('', async(req, res) => {
             }
         })
         if(check_duplicate(req, nomi)){
-            res.status(400).send('Esiste già un prodotto con questo nome')
+            res.status(409).send('Esiste già un prodotto con questo nome')
             return
         }
 
@@ -397,13 +416,11 @@ router.patch('', async(req, res) => {
         })
             .then(() => {
                 //se va a buon fine, restituisco il codice 200
-                console.log('Prodotto modificato con successo')
                 res.status(200).send('Prodotto modificato con successo')
                 return
             })
             .catch((err) => {
                 //se non va a buon fine, restituisco il codice 404
-                console.log('Prodotto non trovato: ' + err)
                 res.status(404).send('Prodotto non trovato: ' + err)
                 return
             })
