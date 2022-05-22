@@ -6,6 +6,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { google } = require("googleapis");
 const nodemailer = require("nodemailer");
+const ruoli = require('./models/Ruoli.js');
 require('dotenv').config()
 
 // Pull out OAuth2 from googleapis
@@ -97,6 +98,21 @@ const register = (utente) => {
     })
 }
 
+const checkOrario = (orario) => {
+    let now = new Date()
+    return orario.some((turno) => {
+        if (turno.giorno === now.getDay()) {
+            let inizio = new Date(turno.oraIniziale).toLocaleTimeString('it-IT')
+            let fine = new Date(turno.oraFinale).toLocaleTimeString('it-IT')
+            let oraNow = now.toLocaleTimeString('it-IT')
+            if (inizio < oraNow && oraNow < fine) {
+                return true
+            }
+        }
+        return false
+    })
+}
+
 router.post("/login", (req, res) => {
     try {
 
@@ -105,35 +121,41 @@ router.post("/login", (req, res) => {
         if (!validator.isEmail(req.body.email) || validator.isEmpty(req.body.password)) {
             return res.status(401).send("Inserire dati validi")
         }
-        
-        Utente.findOne({ email }).then((utente) => {
-            if (utente) {
-                bcrypt.compare(password, utente.hash_pw)
-                    .then((isEqual) => {
-                        if (isEqual) {
-                            const token = jwt.sign(
-                                {
-                                    id: utente._id,
-                                    ruolo: utente.ruolo
-                                },
-                                process.env.SECRET_KEY,
-                                {
-                                    expiresIn: "7d",
+
+        Utente.findOne({ email })
+            .then((utente) => {
+                if (utente) {
+                    bcrypt.compare(password, utente.hash_pw)
+                        .then((isEqual) => {
+                            if (isEqual) {
+                                if (utente.ruolo == ruoli.SPEDIZIONIERE || utente.ruolo == ruoli.PANETTIERE) {
+                                    if (!checkOrario(utente._doc.orario)) {
+                                        return res.status(401).send("Tentativo di accesso fuori orario lavorativo")
+                                    }
                                 }
-                            )
-                            return res.status(200).json({
-                                nome: utente.nome,
-                                token,
-                                role: utente.ruolo
-                            })
-                        } else {
-                            return res.status(401).send("Password errata");
-                        }
-                    })
-            } else {
-                return res.status(401).send("Email non valida");
-            }
-        })
+                                const token = jwt.sign(
+                                    {
+                                        id: utente._id,
+                                        ruolo: utente.ruolo
+                                    },
+                                    process.env.SECRET_KEY,
+                                    {
+                                        expiresIn: "7d",
+                                    }
+                                )
+                                return res.status(200).json({
+                                    nome: utente.nome,
+                                    token,
+                                    role: utente.ruolo
+                                })
+                            } else {
+                                return res.status(401).send("Password errata");
+                            }
+                        })
+                } else {
+                    return res.status(401).send("Email non valida");
+                }
+            })
     } catch (err) {
         return res.status(401).send("Inserire tutti i campi")
     }
