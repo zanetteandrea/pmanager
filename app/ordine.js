@@ -25,7 +25,8 @@ const { parse } = require('dotenv');
  *               type: object
  *               description: generalità del rivenditore
  *               example: [{"_id": "6284eb9ac1e5c03bd845a60a", "dataCreazione": "18781478917419", "dataConsegna": "198934791734197", "idRivenditore": "nwc78adcbjkas3b324","modificabile": true, "prodotti": [{"id": "abdui89d8asb4b","prezzo": 5, "quantita": 3}]}]        
- * 
+ *       404:
+ *        description: Non sono presenti ordini
  *   post:
  *     summary: Crea un nuovo Ordine
  *     requestBody:
@@ -50,7 +51,10 @@ const { parse } = require('dotenv');
  *         description: Dati dell'Ordine inseriti non validi o ordine già presente / Nessun prodotto selezionato per l'ordine / Presente un ordine con stessa data / Fuori orario limite
  *       401:
  *         description: Tentativo di creazione non autorizzato
- *  
+ *       403:
+ *         description: Prodotto non ordinabile
+ *       404:
+ *         description: Rivenditore non trovato
  *   patch:
  *     summary: Modifica un Rivenditore
  *     requestBody:
@@ -73,8 +77,12 @@ const { parse } = require('dotenv');
  *         description: Ordine modificato con successo
  *       400:
  *         description: Dati inseriti non validi o fuori orario limite
+ *       401:
+ *         description: Modifica non autorizzata
+ *       403:
+ *         description: Ordine non modificabile perchè appartenente ad un altro rivenditore / Prodotto non ordinabile
  *       404:
- *         description: Ordine non trovato
+ *         description: Ordine non trovato / Rivenditore non trovato
  * /Ordine/:id:
  *   delete:
  *      summary: Eliminazione Ordine
@@ -90,11 +98,39 @@ const { parse } = require('dotenv');
  *         204:
  *           description: Ordine rimosso dal sistema
  *         400:
- *           description: Errore durante la rimozione
+ *           description: Errore durante la rimozione / ordine non cancellabile perchè fuori orario limite
  *         401:
  *           description: Rimozione non autorizzata
  *         404:
  *           description: Ordine non presente
+ * /Ordine/spedizione:
+ *   get:
+ *     summary: Ritorna i dati per la preparazione della spedizione degli ordini giornalieri
+ *     responses:
+ *       200:
+ *        description: Dati Spedizione
+ *        content:
+ *          application/json:
+ *            schema:
+ *               type: object
+ *               description: dati e prodotti dei rivenditori 
+ *               example: [{"nome": "Poli","email": "poli@info.it", "telefono": 345987382743, "Prodotti": [{"nome": "Tartaruga","quantita": 10}, {"nome": "Rosette","quantita": 5,}]},{"nome": "Coop","email": "coop@info.it", "telefono": 3338749813, "Prodotti": [{"nome": "Focacce","quantita": 7}, {"nome": "Rosette","quantita": 5,}]} ] 
+ *       400:
+ *         description: Errore durante il recupero dei dati di spedizione
+ * /Ordine/produzione:
+ *   get:
+ *     summary: Ritorna i dati per la produzione giornaliera
+ *     responses:
+ *       200:
+ *        description: Dati Produzione
+ *        content:
+ *          application/json:
+ *            schema:
+ *               type: object
+ *               description: ingredienti e prodotti 
+ *               example: [{"nome": "Tartaruga","quantita": 5,  "Ingredienti": [{"nome": "Farina","quantita": 500, "udm" : Gr}, {"nome": "Acqua","quantita": 250, "udm" : ml}]}] 
+ *       400:
+ *         description: Errore durante il recupero dei dati di produzione       
 */
 
 let exit = false
@@ -169,7 +205,7 @@ router.post('', async (req, res) => {
                     //se la data di consegna è entro le 24h
                     if(data-todayMilliseconds <= 86400000) {
                         //scarto le date precedenti al giorno corrente
-                        if(data-todayMilliseconds < -222222220) {
+                        if(data-todayMilliseconds < 0) {
                             res.status(400).send(`data: [${new Date(Number(data)).toDateString()}] non valida `)
                             exit = true
                         //il limite per l'inserimento di un ordine per il giorno successivo è entro le ore 20:01
@@ -313,7 +349,7 @@ router.patch('', async (req, res) => {
         }
         //check se la data di consegna dell'ordine già inserito è nel limite temporale consentito per la modifica
         if(!check_delivery(ordine.dataConsegna)) {
-            res.status(401).send("ordine non modificabile perchè quello già presente è fuori limite di tempo per la modifica")
+            res.status(400).send("ordine non modificabile perchè quello già presente è fuori limite di tempo per la modifica")
             return;
         } 
         //check se la nuova data di consegna dell'ordine è nel limite temporale consentito
@@ -323,7 +359,7 @@ router.patch('', async (req, res) => {
         } 
         //check se si sta cercando di modificare l'ordine appartenente ad un altro rivenditore
         if(ordine.idRivenditore != req.auth.id) {
-            res.status(400).send("ordine non modificabile perchè appartenente ad un altro rivenditore")
+            res.status(403).send("ordine non modificabile perchè appartenente ad un altro rivenditore")
             return;
         }
         //check se è stato inserito almeno un prodotto per l'ordine
@@ -400,7 +436,7 @@ router.delete('/:id', async (req, res) => {
         } 
         try{
            // await ordine.deleteOne()
-            res.status(200).send('Ordine Cancellato');
+            res.status(204).send('Ordine Cancellato');
         } catch {
             res.status(400).send("Errore durante la rimozione");
         }
