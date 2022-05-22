@@ -193,7 +193,7 @@ router.post('', (req, res) => {
 
         check_duplicate(dipendente).then((duplicate) => {
             if (duplicate) {
-                res.status(400).send("Dipendente gia presente");
+                res.status(400).send("Email gia presente nel sistema");
                 return;
             }
             let check = check_fields(dipendente)
@@ -220,8 +220,7 @@ router.delete('/:id', async (req, res) => {
         const _id = req.params.id
         let dipendente = await Dipendente.findById(_id).exec();
         if (!dipendente) {
-            res.status(404).send();
-            console.log("Dipendente Non Presente")
+            res.status(404).send("Dipendente Non presente");
             return;
         }
         try {

@@ -87,7 +87,6 @@ const register = (utente) => {
                         resolve(user)
                     })
                     .catch(() => {
-                        console.log("Errore salvataggio")
                         reject()
                     })
             })
