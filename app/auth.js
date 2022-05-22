@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const Utente = require('./models/utente.js');
+const Utente = require('./models/Utente.js');
 const validator = require('validator');
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
@@ -77,14 +77,14 @@ const sendCredentials = (nome, email, password) => {
 const register = (utente) => {
     return new Promise((resolve, reject) => {
         let password = Math.random().toString(36).slice(-8)
-        console.log("Password generata: ", password)
+        console.log("Password generata:", password)
         sendCredentials(utente.nome, utente.email, password)
             .then(() => {
                 utente.hash_pw = bcrypt.hashSync(password)
                 utente.first_access = true
                 utente.save()
-                    .then(() => {
-                        resolve()
+                    .then((user) => {
+                        resolve(user)
                     })
                     .catch(() => {
                         console.log("Errore salvataggio")
@@ -139,8 +139,11 @@ router.post("/login", (req, res) => {
     }
 })
 
+router.get("/api-docs", (req, res, next) => {
+    next()
+})
+
 router.all("/*", (req, res, next) => {
-    console.log("entro anche qui")
     // check header or url parameters or post parameters for token
     var token = req.body.token || req.query.token || req.headers['x-access-token'];
     // if there is no token

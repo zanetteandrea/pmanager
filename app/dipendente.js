@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const Utente = require('./models/Utente');
 const Dipendente = require('./models/Dipendente'); // get our mongoose model
 
 const validator = require('validator');
@@ -130,7 +131,7 @@ function check_fields(dip) {
     // CHECK ROLE
     if (dip.ruolo != ruoli.PANETTIERE && dip.ruolo != ruoli.SPEDIZIONIERE) {
         checks.data = "ruolo"
-        checks.valid = false 
+        checks.valid = false
     }
     // CHECK FIELD NAME
     if (dip.nome.length <= 2) {
@@ -143,13 +144,14 @@ function check_fields(dip) {
         checks.valid = false
     }
     // CHECK FIELD TELEFONO
-    if (!validator.isInt(dip.telefono)) {
+    if (validator.isEmpty(dip.telefono)) {
         checks.data = "telefono"
         checks.valid = false
     }
-    
-    
-    
+    // CHECK ORARIO
+
+
+
     return checks
 
 }
@@ -157,7 +159,7 @@ function check_fields(dip) {
 // Check if email is already in the system
 function check_duplicate(dip) {
 
-    return Dipendente.find({ email: dip.email }).then((dip) => {
+    return Utente.find({ email: dip.email }).then((dip) => {
         if (!dip.length) {
             return false
         } else {
@@ -166,111 +168,107 @@ function check_duplicate(dip) {
     })
 }
 // ADD GET DIPENDENTI
-router.get('', (req,res) => {
-    if(req.auth.ruolo == ruoli.AMM) {
-        Dipendente.find().select("_id ruolo nome email telefono")
-        .then((prod) => {
-            return res.status(200).json(prod)
-        })
-    }else{
-        return res.status(401).send('Accesso non Autorizzato');
+router.get('', (req, res) => {
+    if (req.auth.ruolo == ruoli.AMM) {
+        Dipendente.find().select("_id ruolo nome email telefono orario")
+            .then((prod) => {
+                return res.status(200).json(prod)
+            })
+    } else {
+        return res.status(401).send('Accesso non autorizzato');
     }
 })
 // ADD NEW DIPENDENTE
 router.post('', (req, res) => {
+    if (req.auth.ruolo == ruoli.AMM) {
+        const { nome, email, telefono, orario, ruolo } = req.body
 
-    const { nome, email, telefono, orario, ruolo } = req.body
-    
-    let dipendente = new Dipendente({
-        nome,
-        email,
-        telefono,
-        orario,
-        ruolo
-    });
+        let dipendente = new Dipendente({
+            nome,
+            email,
+            telefono,
+            orario,
+            ruolo
+        });
 
-    check_duplicate(dipendente).then((duplicate) => {
-        if (duplicate) {
-            console.log("Dipendente già presente")
-            res.status(400).send();
-            return;
-        }
-        let check = check_fields(dipendente)
-        if (!check.valid) {
-            res.status(400).send(`Campo [${check.data}] non valido`);
-        } else {
-            auth.register(dipendente)
-                .then(() => {
-                    console.log('dipendente salvato con successo');
-                    res.status(201).send();
-                })
-                .catch(() => {
-                    res.status(400).send();
-                })
-
-        }
-
-    })
-
-
+        check_duplicate(dipendente).then((duplicate) => {
+            if (duplicate) {
+                res.status(400).send("Dipendente gia presente");
+                return;
+            }
+            let check = check_fields(dipendente)
+            if (!check.valid) {
+                res.status(400).send(`Campo [${check.data}] non valido`);
+            } else {
+                auth.register(dipendente)
+                    .then((dip) => {
+                        res.status(201).send(dip);
+                    })
+                    .catch((err) => {
+                        res.status(400).send(err);
+                    })
+            }
+        })
+    } else {
+        return res.status(401).send('Accesso non autorizzato');
+    }
 });
 
 // DELETE DIPENDENTE
 router.delete('/:id', async (req, res) => {
-
-    const _id = req.params.id
-    let dipendente = await Dipendente.findById(_id).exec();
-    if (!dipendente) {
-        res.status(404).send();
-        console.log("Dipendente Non Presente")
-        return;
-    }
-    try {
-        await dipendente.deleteOne()
-        console.log("dipendente rimosso")
-        res.status(204).send();
-    } catch {
-        console.log("Errore durante la rimozione")
-        res.status(400).send();
+    if (req.auth.ruolo == ruoli.AMM) {
+        const _id = req.params.id
+        let dipendente = await Dipendente.findById(_id).exec();
+        if (!dipendente) {
+            res.status(404).send();
+            console.log("Dipendente Non Presente")
+            return;
+        }
+        try {
+            await dipendente.deleteOne()
+            res.status(200).send("Dipendente rimosso");
+        } catch {
+            res.status(400).send("Errore durante la rimozione");
+        }
+    } else {
+        return res.status(401).send('Accesso non autorizzato');
     }
 });
 
 
 //UPDATE DATA RIVENDITORE
 router.patch('', (req, res) => {
+    if (req.auth.ruolo == ruoli.AMM) {
+        const { _id, nome, email, telefono, ruolo, orario } = req.body
 
-    const { _id, nome, email, telefono, ruolo,orario } = req.body
+        let dipendente = new Dipendente({
+            nome,
+            email,
+            telefono,
+            ruolo,
+            orario
 
-    let dipendente = new Dipendente({
-        nome,
-        email,
-        telefono,
-        ruolo,
-        orario
-        
-    });
-
-    let check = check_fields(dipendente)
-    if (!check.valid) {
-        res.status(400).send(`Campo [${check.data}] non valido`);
-    } else {
-        Dipendente.findOneAndUpdate({
-            "_id": _id
-        }, {
-            $set: { "nome": dipendente.nome, "email": dipendente.email, "telefono": dipendente.telefono, "ruolo": dipendente.ruolo, "orario": dipendente.orario }
-        })
-            .then(() => {
-                console.log('Dipendente modificato con successo');
-                res.status(200).send()
-            }).catch(() => {
-                console.log('Dipendente non trovato');
-                res.status(404).send()
-                return;
+        });
+        let check = check_fields(dipendente)
+        if (!check.valid) {
+            res.status(400).send(`Campo [${check.data}] non valido`);
+        } else {
+            Dipendente.findOneAndUpdate({
+                "_id": _id
+            }, {
+                $set: { "nome": dipendente.nome, "email": dipendente.email, "telefono": dipendente.telefono, "ruolo": dipendente.ruolo, "orario": dipendente.orario }
             })
-
-
+                .then(() => {
+                    res.status(200).send("Dipendente modificato con successo")
+                    return;
+                }).catch(() => {
+                    res.status(404).send('Dipendente non trovato')
+                    return;
+                })
+        }
+    } else {
+        return res.status(401).send('Accesso non autorizzato');
     }
-
 });
 
 

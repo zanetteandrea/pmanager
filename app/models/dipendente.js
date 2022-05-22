@@ -1,6 +1,6 @@
 var mongoose = require('mongoose');
 var Schema = mongoose.Schema;
-const utente = require('./utente');
+const utente = require('./Utente');
 
 // set up a mongoose model
 let dip = new Schema({
