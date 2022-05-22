@@ -37,7 +37,8 @@ app.use(express.json())
 app.use(cors())
 app.use(express.urlencoded({ extended: true }))
 
-const rivenditore = require('./rivenditore.js')
+const rivenditore = require('./rivenditore.js');
+const ordine = require('./ordine.js');
 
 /**
  * Configure Express.js parsing middleware
@@ -52,5 +53,6 @@ app.use(
 )
 app.use(auth.router);
 app.use('/api/v1/rivenditore', rivenditore);
+app.use('/api/v1/ordini', ordine);
 
 module.exports = app;
