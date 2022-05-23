@@ -277,6 +277,14 @@ router.post('', async (req, res) => {
 
 })
 
+function calc_totale(prodotti){
+    let tot = 0
+    prodotti.forEach((p) => {
+        tot += p.prezzo * p.quantita
+    })
+    return tot
+}
+
 router.get('', (req, res) => {
 
     let arrOrd = []
@@ -291,11 +299,15 @@ router.get('', (req, res) => {
                 ord.forEach( (o)=> {
 
                     let temp = {}
+                    temp._id = o._id
                     temp.dataCreazione = o.dataCreazione
                     temp.dataConsegna = o.dataConsegna
                     temp.idRivenditore = o.idRivenditore
                     temp.modificabile = check_delivery(o.dataConsegna)
+                    temp.totale = calc_totale(o.prodotti)
                     temp.prodotti = o.prodotti
+                    
+
                     arrOrd.push(temp)
 
                 })
@@ -313,10 +325,12 @@ router.get('', (req, res) => {
                 ord.forEach( (o)=> {
 
                     let temp = {}
+                    temp._id = o._id
                     temp.dataCreazione = o.dataCreazione
                     temp.dataConsegna = o.dataConsegna
                     temp.idRivenditore = o.idRivenditore
                     temp.modificabile = check_delivery(o.dataConsegna)
+                    temp.totale = calc_totale(o.prodotti)
                     temp.prodotti = o.prodotti
                     arrOrd.push(temp)
 
