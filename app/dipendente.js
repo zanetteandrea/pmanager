@@ -6,26 +6,34 @@ const Dipendente = require('./models/Dipendente'); // get our mongoose model
 const validator = require('validator');
 
 const auth = require('./auth');
-const ruoli = require('./models/Ruoli');
+const ruoli = require('./models/ruoli');
 /**
  * @swagger
  * /Dipendente:
  *   get:
- *     summary: Ritorna tutti i dipendenti presenti nel sistema in formato json
- *     requestBody:
- *        required: true
- *        content:
- *          application/json:
- *            schema:
- *               type: object
- *               description: generalità del dipendente
- *               example: {"_id": "6284eb9ac1e5c03bd845a60a", "nome": "Giovanni", "email": "giovanni@mail.it", "telefono": "3475254874", "ruolo": "panettiere", "orario": [{"giorno": 3,"oraIniziale": 5200, "oraFinale": 6000}]}
+ *     summary: Ritorna tutti i dipendenti presenti nel sistema in formato json solo ed esclusivamente se la richiesta proviene dall'AMM
+ *   parameters:
+ *       - in: header
+ *         name: x-access-token
+ *         description: token per effettuare l'accesso controllato
  *     responses:
  *       200:
- *         description: OK           
+ *         description: OK   
+ *         content:
+ *           application/json:
+ *             schema:
+ *                type: object
+ *                description: dati del dipendente
+ *                example: {"_id": "6284eb9ac1e5c03bd845a60a", "nome": "Giovanni", "email": "giovanni@mail.it", "telefono": "3475254874", "ruolo": "panettiere", "orario": [{"giorno": 3,"oraIniziale": 5200, "oraFinale": 6000}]}
+ *       401:
+ *         description: Accesso non autorizzato
  * 
  *   post:
  *     summary: Crea un nuovo Dipendente
+ *   parameters:
+ *       - in: header
+ *         name: x-access-token
+ *         description: token per effettuare l'accesso controllato
  *     requestBody:
  *       required: true
  *       content:
@@ -33,23 +41,23 @@ const ruoli = require('./models/Ruoli');
  *           schema:
  *             type: object
  *             properties:
- *               nome:
+ *               "nome":
  *                 type: string
  *                 description: Nome del Dipendente.
- *                 example: Giovanni
- *               email:
+ *                 example: "Giovanni"
+ *               "email":
  *                 type: string
  *                 description: email del Dipendente.
- *                 example: giovanni@mail.it
- *               telefono:
+ *                 example: "giovanni@mail.it"
+ *               "telefono":
  *                 type: string
  *                 description: telefono del Dipendente.
- *                 example: 3475254874
- *               ruolo:
+ *                 example: "3475254874"
+ *               "ruolo":
  *                 type: string
  *                 description: ruolo del Dipendente.
- *                 example: panettiere
- *               orario:
+ *                 example: "panettiere"
+ *               "orario":
  *                 type: Object
  *                 description: orari lavorativi del Dipendente.
  *                 example: [{"giorno": 3,"oraIniziale": 5200, "oraFInale": 6000}]
@@ -58,30 +66,15 @@ const ruoli = require('./models/Ruoli');
  *         description: Dipendente creato con successo
  *       400:
  *         description: Dati del Dipendente inseriti non validi o Dipendente già presente
- * 
- *   delete:
- *     summary: Elimina un Dipendente
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               id:
- *                 type: object
- *                 description: id del Dipendente
- *                 example: 6284a31ef6e9638dcb7985e1
- *     responses:
- *       204:
- *         description: Dipendente rimosso dal sistema
- *       400:
- *         description: Id del Dipendente inserito non valido
- *       404:
- *         description: Dipendente non trovato
+ *       401:
+ *         accesso non autorizzato
  * 
  *   patch:
  *     summary: Modifica un Dipendente
+ *     parameters:
+ *       - in: header
+ *         name: x-access-token
+ *         description: token per effettuare l'accesso controllato
  *     requestBody:
  *       required: true
  *       content:
@@ -89,27 +82,27 @@ const ruoli = require('./models/Ruoli');
  *           schema:
  *             type: object
  *             properties:
- *               id:
+ *               "id":
  *                 type: object
  *                 description: id del Dipendente
- *                 example: 6284a31ef6e9638dcb7985e1
- *               nome:
+ *                 example: "6284a31ef6e9638dcb7985e1"
+ *               "nome":
  *                 type: string
  *                 description: nome del Dipendente
- *                 example: Giovanni
- *               email:
+ *                 example: "Giovanni"
+ *               "email":
  *                 type: string
  *                 description: email del Dipendente.
- *                 example: giovanni@mail.it
- *               telefono:
+ *                 example: "giovanni@mail.it"
+ *               "telefono":
  *                 type: string
  *                 description: telefono del Dipendente.
- *                 example: 3475254874
- *               ruolo:
+ *                 example: "3475254874"
+ *               "ruolo":
  *                 type: string
  *                 description: ruolo del Dipendente.
- *                 example: panettiere
- *               orario:
+ *                 example: "panettiere"
+ *               "orario":
  *                 type: Object
  *                 description: orari lavorativi del Dipendente.
  *                 example: [{"giorno": 3,"oraIniziale": 5200, "oraFInale": 6000}]
@@ -118,6 +111,34 @@ const ruoli = require('./models/Ruoli');
  *         description: Dipendente modificato con successo
  *       400:
  *         description: Dati inseriti non validi
+ *       404:
+ *         description: Dipendente non trovato
+ *       401:
+ *         accesso non autorizzato
+ * /dipendenti/:id
+ *   delete:
+ *     description: API che permette l'eliminazione di un dipendente, il cui id deve essere passato come parametro nell'url
+ *     summary: Elimina un dipendente
+ *     paths: 
+ *       /dipendenti/{id}
+ *     parameters:
+ *       - in: header
+ *         name: x-access-token
+ *         description: token per effettuare l'accesso controllato
+ *       - in: path
+ *         name: id
+ *         description: L'id del dipendente da eliminare
+ *         required: true
+ *         example: "/62876144f494b63071fb3e3b"
+ *     schema: 
+ *       type: string
+ *     responses:
+ *       200:
+ *         description: Dipendente rimosso dal sistema
+ *       400:
+ *         description: Errore durante la rimozione
+ *       401:
+ *         description: Accesso non autorizzato
  *       404:
  *         description: Dipendente non trovato
 */
@@ -148,7 +169,23 @@ function check_fields(dip) {
         checks.data = "telefono"
         checks.valid = false
     }
-    // CHECK ORARIO
+    // CHECK GIORNO
+    if (!Array.isArray(dip.orario)) {
+        checks.valid = falseƒ
+        checks.data = "orari not array"
+    }
+    let orari = dip.orario
+    for (let i = 0; i < orari.length; i++) {
+        if (orari[i].giorno < 1 || orari[i].giorno > 7) {
+            checks.valid = false
+            checks.data = "giorno"
+        }
+        if (orari[i].oraIniziale > orari[i].oraFinale) {
+            checks.valid = false
+            checks.data = "orari"
+        }
+
+    }
 
 
 
@@ -193,7 +230,7 @@ router.post('', (req, res) => {
 
         check_duplicate(dipendente).then((duplicate) => {
             if (duplicate) {
-                res.status(400).send("Email gia presente nel sistema");
+                res.status(400).send("Dipendente gia presente");
                 return;
             }
             let check = check_fields(dipendente)
@@ -220,7 +257,7 @@ router.delete('/:id', async (req, res) => {
         const _id = req.params.id
         let dipendente = await Dipendente.findById(_id).exec();
         if (!dipendente) {
-            res.status(404).send("Dipendente Non presente");
+            res.status(404).send();
             return;
         }
         try {
