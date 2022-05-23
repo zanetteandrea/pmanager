@@ -455,7 +455,7 @@ router.get('/spedizioni', async (req, res) => {
 
     //recupero tutti gli ordini da spedire per la giornata corrente
     try {
-        if(req.auth.ruolo == ruoli.RIVENDITORE) {
+        if(req.auth.ruolo == ruoli.SPEDIZIONIERE) {
 
             let ordini = await Ordine.find({})
             ordini.forEach( (ord) => {
@@ -502,7 +502,7 @@ router.get('/produzione', async (req, res) => {
     const todayDate = today.toDateString();
 
     try {
-        if(req.auth.ruolo == ruoli.RIVENDITORE) {
+        if(req.auth.ruolo == ruoli.PANETTIERE) {
 
             let ordini = await Ordine.find({})
             ordini.forEach( (ord) => {
