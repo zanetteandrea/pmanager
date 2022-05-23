@@ -248,22 +248,26 @@ router.post('', async (req, res) => {
                 });
                 // Creazione ordine singolo o multiplo in base a quante date il rivenditore ha selezionato
                 if (!exit) {
-                    dataConsegna.forEach ( data => {
-                        let ordine = new Ordine({
-                            dataCreazione: todayMilliseconds,
-                            dataConsegna: parseInt(data),
-                            idRivenditore : req.auth.id,
-                            prodotti: prodottiOrdinabili
-                        });
-                        
-                        ordine.save()
-                            .then(()=>{})
-                            .catch(()=>{
-                                res.status(400).send("errore durante la creazione dell'ordine")
-                                return;
-                            })
+                    Promise.all(
+                        dataConsegna.map( data => {
+                            let ordine = new Ordine({
+                                dataCreazione: todayMilliseconds,
+                                dataConsegna: parseInt(data),
+                                idRivenditore : req.auth.id,
+                                prodotti: prodottiOrdinabili
+                            });
+
+                            return ordine.save()
+                                .then((ord)=>ord)
+                                .catch(()=>{
+                                    res.status(400).send("errore durante la creazione dell'ordine")
+                                    return;
+                                })
+                        })
+                    ).then((ordini) => {
+                        res.status(201).send(ordini)
                     })
-                    res.status(201).send("ordine creato con successo")
+                    
                 }
             })
             .catch(() => {
@@ -449,7 +453,7 @@ router.delete('/:id', async (req, res) => {
             return;
         } 
         try{
-           // await ordine.deleteOne()
+            await ordine.deleteOne()
             res.status(204).send('Ordine Cancellato');
         } catch {
             res.status(400).send("Errore durante la rimozione");
