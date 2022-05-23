@@ -23,8 +23,8 @@ const Rivenditore = require('./models/Rivenditore')
  *           application/json:
  *             schema:
  *                type: array
- *                description: ingredienti del prodotto
- *                example: {"_id": "6284eb9ac1e5c03bd845a60a", "nome": "pane2", "ingredienti": [{"nome": "farina","quantita": 300,"udm": "gr","_id": "6284eb9ac1e5c03bd845a60b"}], "prezzo": 1.3, "foto": "/images/mantovana.jpg"} 
+ *                description: Prodotti nel catalogo con gli ingredienti
+ *                example: [{"_id": "6284eb9ac1e5c03bd845a60a", "nome": "pane2", "ingredienti": [{"nome": "farina","quantita": 300,"udm": "gr","_id": "6284eb9ac1e5c03bd845a60b"}], "prezzo": 1.3, "foto": "/images/mantovana.jpg"}] 
  *       401:
  *         description: Accesso non autorizzato
  *       404:
@@ -99,6 +99,8 @@ const Rivenditore = require('./models/Rivenditore')
  *         description: Prodotto modificato con successo
  *       400:
  *         description: Dati inseriti non validi
+ *       401:
+ *         description: Accesso non autorizzato
  *       404:
  *         description: Prodotto non trovato
  *       409:
@@ -131,6 +133,8 @@ const Rivenditore = require('./models/Rivenditore')
  *     responses:
  *       200:
  *         description: Foto memorizzata con successo
+ *       401:
+ *         description: Accesso non autorizzato
  *       404:
  *         description: Prodotto non trovato
  *       500:
@@ -158,6 +162,8 @@ const Rivenditore = require('./models/Rivenditore')
  *         description: Prodotto rimosso dal sistema
  *       400:
  *         description: Id del prodotto inserito non valido
+ *       401:
+ *         description: Accesso non autorizzato
  *       404:
  *         description: Prodotto non trovato
  *       500:
@@ -311,7 +317,7 @@ router.post('', async(req, res) => {
             })
     } else {
         //se la richiesta viene da utente che non è l'AMM, restituisco il codice 401
-        res.status(401).send("Unauthorized access")
+        res.status(401).send("Accesso non autorizzato")
     }
 
 })
@@ -319,24 +325,30 @@ router.post('', async(req, res) => {
 
 //API per l'upload della foto del prodotto
 router.post("/:id", upload.single('image'), (req, res) => {
-    try {
-        //cerco nel db il prodotto il cui id è passato come parametro nel url, se lo trovo modifico il valore del campo 'foto' con il percorso relativo di dove è salvata l'immagine nel server
-        Prodotto.findOneAndUpdate({
-            "_id": req.params.id
-        }, {
-            $set: { "foto": "images/" + req.params.id + ".png" }
-        })
-            .then(() => {
-                //se il documento nel db viene aggiornato con succcesso, ritorno il codice 200
-                res.status(200).send('Immagine salvata con successo')
+    //controllo che sia stato l'AMM a fare la richiesta
+    if (req.auth.ruolo == ruoli.AMM) {
+        try {
+            //cerco nel db il prodotto il cui id è passato come parametro nel url, se lo trovo modifico il valore del campo 'foto' con il percorso relativo di dove è salvata l'immagine nel server
+            Prodotto.findOneAndUpdate({
+                "_id": req.params.id
+            }, {
+                $set: { "foto": "images/" + req.params.id + ".png" }
             })
-            .catch(() => {
-                //se non viene trovato un prodotto con quel id, restituisco il codice 404
-                res.status(404).send('Prodotto non trovato')
-            })
-    } catch (err) {
-        //se non riesco a trovare il prodotto, ritorno il codice 500
-        return res.status(500).send("Errore salvataggio foto");
+                .then(() => {
+                    //se il documento nel db viene aggiornato con succcesso, ritorno il codice 200
+                    res.status(200).send('Immagine salvata con successo')
+                })
+                .catch(() => {
+                    //se non viene trovato un prodotto con quel id, restituisco il codice 404
+                    res.status(404).send('Prodotto non trovato')
+                })
+        } catch (err) {
+            //se non riesco a trovare il prodotto, ritorno il codice 500
+            return res.status(500).send("Errore salvataggio foto");
+        }
+    }else{
+        res.status(401).send('Accesso non autorizzato')
+        return
     }
 })
 
@@ -375,6 +387,9 @@ router.delete('/:id', (req, res) => {
                 res.status(404).send("Prodotto non trovato: " + err)
                 return
             })
+    }else{
+        res.status(401).send('Accesso non autorizzato')
+        return
     }
 })
 
@@ -424,6 +439,9 @@ router.patch('', async(req, res) => {
                 res.status(404).send('Prodotto non trovato: ' + err)
                 return
             })
+    }else{
+        res.status(401).send('Accesso non autorizzato')
+        return
     }
 })
 
