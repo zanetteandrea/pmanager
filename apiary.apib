@@ -1,0 +1,862 @@
+FORMAT: 1A
+HOST: https://localhost:3000/api/v1
+
+# PManager 
+
+Documentazione API e modelli del sistema PManager
+
+## API Autenticazione [/auth]
+
+### POST Login [POST]
+
+Fornisce un token di autenticazione a tutti gli utenti che inseriscono delle credenziali valide con cui effettuare le richieste alle API protette 
+
++ Request (application/json)
+
+    + Body
+    
+        {
+            "email" : "test@test.it",
+            "password" : "password1234"
+        }
+        
++ Response 200 (application/json)
+    
+    Restituisce il nome dell'utente che ha superato l'autenticazione, il token che utilizzerà per fare delle richieste ad API private e il ruolo
+
+    + Body
+        
+        {
+            "nome": "Nome utente",
+            "token": "thesupersecrettoken",
+            "role": "amm"
+        }
+
++ Response 401 
+
+    Una delle seguenti motivazioni
+    
+    + Body
+        Tentativo di accesso fuori orario lavorativo
+        Email o Password errati
+        Dati invalidi
+        
+### ALL Controllo del token [GET]
+
+Protegge l'accesso a tutte le API private verificando che il token fornito nel header delle richieste sia valido
+
++ Request
+
+    + Header
+    
+        x-access-token: String
+        
++ Response 200
+    
+    Permette l'accesso alle API private
+    
+    + Body
+
++ Response 401 
+
+    Accesso non autorizzato
+    
++ Response 403 
+
+    Nessun token fornito
+
+## API Prodotto [/prodotti]
+
+### GET Catalogo prodotti [GET]
+
+Se la richiesta proviene dall'AMM vengono restituiti tutti i prodotti presenti a sistema.
+Se la richiesta proviene da un Rivenditore vengono restituiti solo i prodotti da lui ordinabili.
+
++ Request
+
+    + Header
+        x-access-token: String
+    
++ Response 200 (application/json)
+    Restituisce un array in json con dentro gli oggetti prodotti
+    + Body
+    
+        [
+            {
+                "_id": "6284eb9ac1e5c03bd845a60a",
+                "nome": "pane2",
+                "ingredienti": [
+                    {
+                        "nome": "farina",
+                        "quantita": 300,
+                        "udm": "gr",
+                        "_id": "6284eb9ac1e5c03bd845a60b"
+                    }
+                ],
+                "prezzo": 1.3,
+                "foto": "/images/mantovana.png"
+            }
+        ]
+        
++ Response 401
+    Accesso non autorizzato
+    
++ Response 404
+    Prodotti o Rivenditore non trovati
+        
+### POST Crea Nuovo Prodotto [POST]
+
+Creazione di un nuovo prodotto da parte dell'AMM. Nel header della richiesta ci deve essere un token per permettere l'accesso controllato. Nel body della richiesta ci deve essere un oggetto in formato json contenente il nome, gli ingredienti e il prezzo consigliato del prodotto che si vuole creare
+
++ Request (application/json)
+
+    + Header
+        x-access-token: String
+        
+    + Body
+        {
+            "nome": "Mantovana",
+            "ingredienti": [
+                {
+                    "nome": "acqua",
+                    "quantita": 1,
+                    "udm": "L"
+                }
+            ],
+            "prezzo": 1.3
+        }
+
++ Response 201 
+
+    Prodotto creato con successo
+    
++ Response 400 
+
+    Dati del prodotto inseriti non validi
+    
++ Response 401 
+
+    Tentativo di creazione non autorizzato
+    
+    
+### PATCH Modifica un prodotto [PATCH]
+
+Modifica di un prodotto da parte dell'AMM. Nel header della richiesta ci deve essere un token per permettere l'accesso controllato. Nel body della richiesta ci deve essere un oggetto in formato json contenente l'id del prodotto che si vuole modificare, oltre al nome, agli ingredienti e al prezzo aggiornati.
+
++ Request (application/json)
+
+    + Header
+        x-access-token: String
+        
+    + Body
+        {
+            "_id": "6288f6e05aecaa8135400276"
+            "nome": "Mantovana",
+            "ingredienti": [
+                {
+                    "nome": "acqua",
+                    "quantita": 1,
+                    "udm": "L"
+                }
+            ],
+            "prezzo": 1.5
+        }
+
++ Response 200
+
+    Prodotto modificato con successo
+
+    
++ Response 400 
+
+    Dati del prodotto inseriti non validi
+
+
++ Response 401 
+
+    Modifica non autorizzato
+
++ Response 404
+    
+    Prodotto non trovato
+    
++ Response 409
+    Esiste già un prodotto con questo nome
+
+
+### DELETE Eliminazione di un prodotto [DELETE]
+
+Elimazione di un prodotto, il cui id è passato nell'url, da parte dell'AMM
+
++ Parameters 
+    + Values 
+        + id
+
++ Request
+
+    + Header 
+        x-access-token: string
+
+    
++ Response 204 
+
+    Prodotto rimosso dal sistema
+
++ Response 400 
+
+    Id del prodotto inserito non valido
+
+    
++ Response 401 
+    
+    Accesso non autorizzato
+    
++ Response 404
+    
+    Prodotto non trovato
+    
++ Response 500
+    Eliminazione non riuscita
+    
+    
+### Upload foto [POST]
+
+Salva la foto del prodotto il cui id è passato come parametro nell'url
+
++ Parameters
+    + Values 
+        id
+        
++ Request (image/png)
+    
+    + Header 
+        
+        x-access-token: string
+
++ Response 200
+
+    Foto memorizzata con successo
+    
++ Response 401
+    
+    Accesso non autorizzato
+    
++ Response 404
+
+    Prodotto non trovato
+    
++ Response 500
+    
+    Upload foto fallito
+
+## API Ordini [/ordini]
+
+### GET Lista ordini [GET]
+
+Se la richiesta proviene dall'AMM vengono restituiti tutti gli ordini presenti a sistema.
+Se la richiesta proviene da un Rivenditore vengono restituiti solo gli ordini da lui creati.
+
++ Request 
+    + Headers
+       x-access-token: String
+
++ Response 200 (application/json)
+
+    [
+        {
+            "_id": "628a10a3a6b9dbc66374c071",
+            "dataCreazione": 1653215395142,
+            "dataConsegna": 1653215333885,
+            "idRivenditore": "62876106f494b63071fb3e35",
+            "modificabile": true,
+            "totale": 43,
+            "prodotti": [
+                {
+                    "id": "6288f70d5aecaa813540027b",
+                    "prezzo": 2,
+                    "quantita": 4,
+                    "_id": "628a10a3a6b9dbc66374c072"
+                },
+                {
+                    "id": "6288f8846017b58ea5ec2859",
+                    "prezzo": 3,
+                    "quantita": 5,
+                    "_id": "628a10a3a6b9dbc66374c073"
+                },
+                {
+                    "id": "6288f90640b60353bece3330",
+                    "prezzo": 4,
+                    "quantita": 5,
+                    "_id": "628a10a3a6b9dbc66374c074"
+                }
+            ]
+        }
+    ]
+
++ Response 400 
+
+    Non sono presenti ordini
+    
++ Response 401 
+
+    Non autorizzato
+
+### POST Creazione di un ordine [POST]
+
+Creazione di un nuovo ordine da parte di un Rivenditore
+
++ Request 
+    + Headers
+       x-access-token: String
+
+
++ Request (application/json)
+
+        {
+            "dataConsegna": ["1653215333885","1632424333545"],
+            "prodotti":[
+        {
+            "id": "62875ee2a3b2841c579af932", 
+            "quantita": 4
+        },
+        {
+            "id": "62875f26a3b2841c579af93a", 
+            "quantita": 5
+        }
+    ]
+}
+
++ Response 201 (application/json)
+
+    Ordine creato con successo
+
+    + Body
+    
+    [
+      {
+        "_id": "6284eb9ac1e5c03bd845a60a",
+        "dataCreazione": "18781478917419",
+        "dataConsegna": "198934791734197",
+        "idRivenditore": "nwc78adcbjkas3b324",
+        "modificabile": true,
+        "prodotti": [
+          {
+            "id": "abdui89d8asb4b",
+            "prezzo": 5,
+            "quantita": 3
+          }
+        ]
+      }
+    ]
+    
++ Response 400 
+    Una delle seguenti motivazioni
+    
+    + Body
+
+    Dati dell'Ordine inseriti non validi o ordine già presente
+    Nessun prodotto selezionato per l'ordine 
+    Presente un ordine con stessa data 
+    Fuori orario limite
+    
++ Response 401 
+
+    Non autorizzato
+  
++ Response 403 
+
+    Prodotto non ordinabile
+    
++ Response 404 
+
+    Rivenditore non trovato
+
+### PATCH Modifica di un ordine [PATCH]
+
+Modifica di un ordine da parte di un Rivenditore
+
++ Request 
+    + Headers
+       x-access-token: String
+
+
++ Request (application/json)
+
+    {
+        "idOrdine": "62890f2c89296c2ed8cb48f0",
+        "dataConsegna": "1653163422660",
+        "prodotti":[
+            {
+                "id": "6288f6e05aecaa8135400276", 
+                "quantita": 1
+            },
+            {
+                "id": "6288f70d5aecaa813540027b", 
+                "quantita": 2
+            },
+            {
+                "id": "6288f8846017b58ea5ec2859", 
+                "quantita": 3
+            }
+    
+        ]
+    }
+
++ Response 201 
+
+    Ordine modificato con successo
+    
++ Response 400 
+
+    Una delle seguenti motivazioni
+    
+    + Body
+
+        Dati inseriti non validi
+        Fuori orario limite
+    
++ Response 401 
+
+    Non autorizzato
+ 
++ Response 403 
+
+    Ordine non modificabile perchè appartenente ad un altro rivenditore / Prodotto non ordinabile
+    
+    + Body
+
++ Response 404 
+    
+    Ordine non trovato / Rivenditore non trovato
+    
+    + Body
+
+### DELETE Eliminazione di un ordine [DELETE]
+
+Elimazione di un nuovo ordine da parte di un Rivenditore
+
++ Parameters 
+    + Values 
+        id
+
++ Request 
+    + Headers
+       x-access-token: String
+    
++ Response 204 
+
+    Ordine rimosso dal sistema
+    
++ Response 400 
+
+    Errore durante la rimozione / ordine non cancellabile perchè fuori orario limite
+   
++ Response 401 
+
+    Non autorizzato
+
++ Response 404 
+
+    Ordine non presente
+
+## API Spedizioni [/ordini/spedizione]
+
+### GET Spedizioni giornaliere [GET]
+
+Ritorna tutti i dati degli ordini da consegnare nella la giornata corrente
+
++ Request 
+    + Headers
+       x-access-token: String
+
++ Response 201 (application/json) 
+
+    Dati Spedizione
+
+    + Body
+        [
+          {
+            "nome": "Poli",
+            "email": "poli@info.it",
+            "telefono": 345987382743,
+            "Prodotti": [
+              {
+                "nome": "Tartaruga",
+                "quantita": 10
+              },
+              {
+                "nome": "Rosette",
+                "quantita": 5
+              }
+            ]
+          }
+        ]
+    
++ Response 400 
+
+    Errore durante il recupero dei dati di spedizione
+
++ Response 401 
+
+    Non autorizzato
+    
+## API Produzione [/ordini/produzione]
+
+### GET Produzione giornaliera [GET]
+
+Ritorna i prodotti e le quantità di ingredienti necessarie alla loro produzione ordinati dai rivenditori con consegna nella giornata corrente
+
++ Request 
+    + Headers
+       x-access-token: String
+
++ Response 200 (application/json) 
+
+    Dati di Produzione
+
+    + Body
+        [
+          {
+            "nome": "Tartaruga",
+            "quantita": 5,
+            "ingredienti": [
+              {
+                "nome": "Farina",
+                "quantita": 500,
+                "udm": "Gr"
+              },
+              {
+                "nome": "Acqua",
+                "quantita": 250,
+                "udm": "ml"
+              }
+            ]
+          }
+        ]
+    
++ Response 400 
+
+    Errore durante il recupero dei dati di produzione
+   
++ Response 401 
+
+    Non autorizzato
+
+## API Rivenditore [/rivenditore]
+
+### GET Lista rivenditori [GET]
+
+Ritorna all'AMM tutti i rivenditori registrati nel sistema
+
++ Request 
+    + Headers
+       x-access-token: String
+
++ Response 200 (application/json)
+
+    {
+        "_id": "6284eb9ac1e5c03bd845a60a",
+        "nome": "Poli",
+        "email": "poli@supermercato.it",
+        "telefono": "3475264874",
+        "indirizzo": "via san giuseppe 35 38088 spiazzo",
+        "catalogo": [
+            {
+                "id": "12345678909876",
+                "prezzo": 5
+            }
+        ]
+    }
+
++ Response 400 
+
+    Non sono presenti Rivenditori
+
++ Response 401 
+
+    Non autorizzato
+   
+### POST Creazione di un nuovo rivenditore [POST]
+
+Creazione di un nuovo rivenditore
+
++ Request 
+    + Headers
+       x-access-token: String
+
+
++ Request (application/json)
+
+    {
+      "nome": "Poli",
+      "email": "poli@supermercato.it",
+      "telefono": "3475264874",
+      "indirizzo": "via san giuseppe 35 38088 spiazzo",
+      "catalogo": [
+        {
+          "id": "62875f0ea3b2841c579af936",
+          "prezzo": 5
+        }
+        ]
+    }
+
++ Response 201 
+
+    Il modello del nuovo rivenditore
+    
+    + Body
+    
+        {
+            "_id": "6284eb9ac1e5c03bd845a60a",
+            "nome": "Poli",
+            "email": "poli@supermercato.it",
+            "telefono": "3475264874",
+            "indirizzo": "via san giuseppe 35 38088 spiazzo",
+            "catalogo": [
+                {
+                    "id": "12345678909876",
+                    "prezzo": 5
+                }
+            ]
+        }
+
++ Response 400 
+
+    Una delle seguenti motivazioni
+
+    + Body
+        Dati del Rivenditore inseriti non validi
+        Rivenditore già presente
+ 
++ Response 401 
+
+    Non autorizzato
+
+### PATCH Modifica di un rivenditore [PATCH]
+
+Modifica di un rivenditore
+
++ Request 
+    + Headers
+       x-access-token: String
+
+
++ Request (application/json)
+
+    {
+        "id": "6284a31ef6e9638dcb7985e1",
+        "nome": "Poli",
+        "email": "poli@supermercato.it",
+        "telefono": "3475264874",
+        "indirizzo": "via san giuseppe 35 38088 spiazzo",
+        "catalogo": [
+            {
+                "id": "62875f0ea3b2841c579af936",
+                "prezzo": 5
+            }
+        ]
+    }
+
++ Response 201 
+
+    Rivenditore modificato con successo
+  
++ Response 400 
+
+    Dati inseriti non validi
+   
++ Response 401 
+
+    Non autorizzato
+
++ Response 404 
+    
+    Rivenditore non trovato
+
+### DELETE Eliminazione di un rivenditore [DELETE]
+
+Elimazione di un Rivenditore da parte dell'AMM
+
++ Parameters 
+    + Values 
+        + id 
+
++ Request 
+    + Headers
+       x-access-token: String
+    
++ Response 204 
+
+    Rivenditore rimosso dal sistema
+  
++ Response 400 
+
+    Errore durante la rimozione
+
++ Response 401 
+
+    Non autorizzato
+
++ Response 404 
+
+    Rivenditore non presente
+
+## API Dipendente [/dipendente]
+
+### GET Lista dipendenti [GET]
+
+Ritorna all'AMM tutti i dipendenti registrati nel sistema
+
++ Request 
+    + Headers
+       x-access-token: String
+
++ Response 200 (application/json)
+
+    {
+        "_id": "6284eb9ac1e5c03bd845a60a",
+        "nome": "Giovanni",
+        "email": "giovanni@mail.it",
+        "telefono": "3475264874",
+        "ruolo": "panettiere",
+        "orario": [
+            {
+                "giorno": 3,
+                "oraIniziale": 520
+                "oraFinale": 1620
+            }
+        ]
+    }
+
++ Response 401 
+
+    Accesso non autorizzato
+   
+### POST Creazione di un nuovo dipendente [POST]
+
+Creazione di un nuovo dipendente
+
++ Request 
+    + Headers
+       x-access-token: String
+
+
++ Request (application/json)
+
+    {
+        "_id": "6284eb9ac1e5c03bd845a60a",
+        "nome": "Giovanni",
+        "email": "giovanni@mail.it",
+        "telefono": "3475264874",
+        "ruolo": "panettiere",
+        "orario": [
+            {
+                "giorno": 3,
+                "oraIniziale": 520
+                "oraFinale": 1620
+            }
+        ]
+    }
+
++ Response 201 
+
+    Dipendente creato con successo - Il modello del nuovo dipendente
+    
+    + Body
+    
+    {
+        "_id": "6284eb9ac1e5c03bd845a60a",
+        "nome": "Giovanni",
+        "email": "giovanni@mail.it",
+        "telefono": "3475264874",
+        "ruolo": "panettiere",
+        "orario": [
+            {
+                "giorno": 3,
+                "oraIniziale": 520
+                "oraFinale": 1620
+            }
+        ]
+    }
+
++ Response 400 
+
+    Una delle seguenti motivazioni
+
+    + Body
+        Dati del Dipendente inseriti non validi
+        Dipendente già presente
+ 
++ Response 401 
+
+    Accesso non autorizzato
+
+### PATCH Modifica di un dipendente [PATCH]
+
+Modifica di un dipendente
+
++ Request 
+    + Headers
+       x-access-token: String
+
+
++ Request (application/json)
+
+    {
+        "_id": "6284eb9ac1e5c03bd845a60a",
+        "nome": "Giovanni",
+        "email": "giovanni@mail.it",
+        "telefono": "3475264874",
+        "ruolo": "panettiere",
+        "orario": [
+            {
+                "giorno": 4,
+                "oraIniziale": 520
+                "oraFinale": 1620
+            }
+        ]
+    }
+
++ Response 200
+
+    Dipendente modificato con successo
+  
++ Response 400 
+
+    Dati inseriti non validi
+   
++ Response 401 
+
+    Accesso non autorizzato
+
++ Response 404 
+    
+    Dipendente non trovato
+
+### DELETE Eliminazione di un dipendente [DELETE]
+
+Elimazione di un Dipendente da parte dell'AMM
+
++ Parameters 
+    + Values 
+        + id 
+
++ Request 
+    + Headers
+       x-access-token: String
+    
++ Response 200
+
+    Dipendente rimosso dal sistema
+  
++ Response 400 
+
+    Errore durante la rimozione
+
++ Response 401 
+
+    Non autorizzato
+
++ Response 404 
+
+    Dipendente non presente
