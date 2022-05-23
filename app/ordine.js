@@ -10,6 +10,10 @@ const Prodotto = require('./models/Prodotto');
  * /Ordine:
  *   get:
  *     summary: Ritorna tutti gli Ordini presenti nel sistema in formato json se AMM altrimenti solo i propri Ordini
+ *     parameters:
+ *       - in: header
+ *         name: x-access-token
+ *         description: token per effettuare l'accesso controllato
  *     responses:
  *       200:
  *        description: Ordini
@@ -21,8 +25,14 @@ const Prodotto = require('./models/Prodotto');
  *               example: [{"_id": "6284eb9ac1e5c03bd845a60a", "dataCreazione": "18781478917419", "dataConsegna": "198934791734197", "idRivenditore": "nwc78adcbjkas3b324","modificabile": true, "prodotti": [{"id": "abdui89d8asb4b","prezzo": 5, "quantita": 3}]}]        
  *       404:
  *        description: Non sono presenti ordini
+ *       401:
+ *        description: Non autorizzato
  *   post:
  *     summary: Crea un nuovo Ordine
+ *     parameters:
+ *       - in: header
+ *         name: x-access-token
+ *         description: token per effettuare l'accesso controllato
  *     requestBody:
  *       required: true
  *       content:
@@ -44,13 +54,17 @@ const Prodotto = require('./models/Prodotto');
  *       400:
  *         description: Dati dell'Ordine inseriti non validi o ordine già presente / Nessun prodotto selezionato per l'ordine / Presente un ordine con stessa data / Fuori orario limite
  *       401:
- *         description: Tentativo di creazione non autorizzato
+ *         description: Non autorizzato
  *       403:
  *         description: Prodotto non ordinabile
  *       404:
  *         description: Rivenditore non trovato
  *   patch:
  *     summary: Modifica un Rivenditore
+ *     parameters:
+ *       - in: header
+ *         name: x-access-token
+ *         description: token per effettuare l'accesso controllato
  *     requestBody:
  *       required: true
  *       content:
@@ -72,7 +86,7 @@ const Prodotto = require('./models/Prodotto');
  *       400:
  *         description: Dati inseriti non validi o fuori orario limite
  *       401:
- *         description: Modifica non autorizzata
+ *         description: Non autorizzato
  *       403:
  *         description: Ordine non modificabile perchè appartenente ad un altro rivenditore / Prodotto non ordinabile
  *       404:
@@ -86,6 +100,9 @@ const Prodotto = require('./models/Prodotto');
  *       - in: path
  *         name: id
  *         description: id dell'ordine da eliminare
+ *       - in: header
+ *         name: x-access-token
+ *         description: token per effettuare l'accesso controllato
  *      schema:
  *         type: String
  *      responses:
@@ -94,12 +111,16 @@ const Prodotto = require('./models/Prodotto');
  *         400:
  *           description: Errore durante la rimozione / ordine non cancellabile perchè fuori orario limite
  *         401:
- *           description: Rimozione non autorizzata
+ *           description: Non autorizzato
  *         404:
  *           description: Ordine non presente
  * /Ordine/spedizione:
  *   get:
  *     summary: Ritorna i dati per la preparazione della spedizione degli ordini giornalieri
+ *     parameters:
+ *       - in: header
+ *         name: x-access-token
+ *         description: token per effettuare l'accesso controllato
  *     responses:
  *       200:
  *        description: Dati Spedizione
@@ -111,9 +132,15 @@ const Prodotto = require('./models/Prodotto');
  *               example: [{"nome": "Poli","email": "poli@info.it", "telefono": 345987382743, "Prodotti": [{"nome": "Tartaruga","quantita": 10}, {"nome": "Rosette","quantita": 5,}]},{"nome": "Coop","email": "coop@info.it", "telefono": 3338749813, "Prodotti": [{"nome": "Focacce","quantita": 7}, {"nome": "Rosette","quantita": 5,}]} ] 
  *       400:
  *         description: Errore durante il recupero dei dati di spedizione
+ *       401:
+ *        description: Non autorizzato
  * /Ordine/produzione:
  *   get:
  *     summary: Ritorna i dati per la produzione giornaliera
+ *     parameters:
+ *       - in: header
+ *         name: x-access-token
+ *         description: token per effettuare l'accesso controllato
  *     responses:
  *       200:
  *        description: Dati Produzione
@@ -124,7 +151,9 @@ const Prodotto = require('./models/Prodotto');
  *               description: ingredienti e prodotti 
  *               example: [{"nome": "Tartaruga","quantita": 5,  "Ingredienti": [{"nome": "Farina","quantita": 500, "udm" : Gr}, {"nome": "Acqua","quantita": 250, "udm" : ml}]}] 
  *       400:
- *         description: Errore durante il recupero dei dati di produzione       
+ *         description: Errore durante il recupero dei dati di produzione   
+ *       401:
+ *        description: Non autorizzato    
 */
 
 let exit = false
@@ -270,7 +299,7 @@ router.post('', async (req, res) => {
             })
         }
     } else {
-        res.status(401).send('operazione non autorizzata')
+        res.status(401).send('Non autorizzato')
         return;
     }
 
