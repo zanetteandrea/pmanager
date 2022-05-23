@@ -537,7 +537,10 @@ router.get('/produzione', async (req, res) => {
                 }
             }
             res.status(200).json(prodGiornaliera)
+        } else {
+            res.status(401).send("Non autorizzato")
         }
+        
     } catch {
         res.status(400).send("errore durante il recupero della produzione")
     }
