@@ -1,16 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const Rivenditore = require('./models/Rivenditore'); // get our mongoose model
-//const Utente = require('./models/utente'); // get our mongoose model
-const validator = require('validator');
-//const register = require('./auth')
-const auth = require('./auth');
 const ruoli = require('./models/ruoli');
 const Ordine = require('./models/Ordine');
 const Prodotto = require('./models/Prodotto');
-const res = require('express/lib/response');
-const { get } = require('express/lib/response');
-const { parse } = require('dotenv');
+
 /**
  * @swagger
  * /Ordine:
