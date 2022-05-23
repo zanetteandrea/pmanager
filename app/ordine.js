@@ -273,6 +273,7 @@ router.post('', async (req, res) => {
         }
     } else {
         res.status(401).send('operazione non autorizzata')
+        return;
     }
 
 })
@@ -340,6 +341,9 @@ router.get('', (req, res) => {
             .catch(()=>{
                 res.status(404).send('non sono presenti ordini')
             })
+    } else {
+        res.status(401).send("Non Autorizzato")
+        return;
     }
 })
 
@@ -425,6 +429,9 @@ router.patch('', async (req, res) => {
                     res.status(404).send('rivenditore non trovato')
 
                 })
+    }  else {
+        res.status(401).send("Non Autorizzato")
+        return;
     }
 });
 
@@ -449,11 +456,14 @@ router.delete('/:id', async (req, res) => {
             return;
         } 
         try{
-           // await ordine.deleteOne()
+            await ordine.deleteOne()
             res.status(204).send('Ordine Cancellato');
         } catch {
             res.status(400).send("Errore durante la rimozione");
         }
+    } else {
+        res.status(401).send("Non Autorizzato")
+        return;
     }
 });
 
@@ -470,7 +480,7 @@ router.get('/spedizioni', async (req, res) => {
     //recupero tutti gli ordini da spedire per la giornata corrente
     try {
         if(req.auth.ruolo == ruoli.SPEDIZIONIERE) {
-
+            
             let ordini = await Ordine.find({})
             ordini.forEach( (ord) => {
                 if(new Date(Number(ord.dataConsegna)).toDateString() == todayDate ) {
@@ -498,6 +508,9 @@ router.get('/spedizioni', async (req, res) => {
 
             }
             res.status(200).json(produzioneGiornaliera)
+        } else {
+            res.status(401).send("Non Autorizzato")
+            return;
         }
     } catch {
         res.status(400).send("errore durante il recupero degli ordini")
@@ -551,6 +564,9 @@ router.get('/produzione', async (req, res) => {
                 }
             }
             res.status(200).json(prodGiornaliera)
+        } else {
+            res.status(401).send("Non Autorizzato")
+            return;
         }
     } catch {
         res.status(400).send("errore durante il recupero della produzione")
