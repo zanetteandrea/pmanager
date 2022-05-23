@@ -4,7 +4,7 @@ const Rivenditore = require('./models/Rivenditore') // get our mongoose model
 const Utente = require('./models/Utente')
 const validator = require('validator');
 const auth = require('./auth');
-const ruoli = require('./models/ruoli');
+const ruoli = require('./models/Ruoli');
 /**
  * @swagger
  * /Rivenditore:
