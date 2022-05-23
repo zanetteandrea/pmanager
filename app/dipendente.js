@@ -12,7 +12,7 @@ const ruoli = require('./models/ruoli');
  * /Dipendente:
  *   get:
  *     summary: Ritorna tutti i dipendenti presenti nel sistema in formato json solo ed esclusivamente se la richiesta proviene dall'AMM
- *   parameters:
+ *     parameters:
  *       - in: header
  *         name: x-access-token
  *         description: token per effettuare l'accesso controllato
@@ -30,7 +30,7 @@ const ruoli = require('./models/ruoli');
  * 
  *   post:
  *     summary: Crea un nuovo Dipendente
- *   parameters:
+ *     parameters:
  *       - in: header
  *         name: x-access-token
  *         description: token per effettuare l'accesso controllato
@@ -115,7 +115,6 @@ const ruoli = require('./models/ruoli');
  *         description: Dipendente non trovato
  *       401:
  *         accesso non autorizzato
- * /dipendenti/:id
  *   delete:
  *     description: API che permette l'eliminazione di un dipendente, il cui id deve essere passato come parametro nell'url
  *     summary: Elimina un dipendente
@@ -171,7 +170,7 @@ function check_fields(dip) {
     }
     // CHECK GIORNO
     if (!Array.isArray(dip.orario)) {
-        checks.valid = falseƒ
+        checks.valid = false
         checks.data = "orari not array"
     }
     let orari = dip.orario
