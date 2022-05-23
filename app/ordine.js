@@ -498,6 +498,8 @@ router.get('/spedizioni', async (req, res) => {
 
             }
             res.status(200).json(produzioneGiornaliera)
+        } else {
+            res.status(401).send("Non autorizzato")
         }
     } catch {
         res.status(400).send("errore durante il recupero degli ordini")
