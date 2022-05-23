@@ -523,6 +523,7 @@ router.get('/spedizioni', async (req, res) => {
                 temp.nome = riv.nome
                 temp.email = riv.email
                 temp.telefono = riv.telefono
+                temp.indirizzo = riv.indirizzo
                 temp.prodotti = []
                 for(let j = 0; j<ordiniGiornalieri[i].prodotti.length; j++) {
                     let tmpProd = {}
