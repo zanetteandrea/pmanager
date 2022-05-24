@@ -8,6 +8,7 @@ const { google } = require("googleapis");
 const nodemailer = require("nodemailer");
 const ruoli = require('./models/Ruoli.js');
 require('dotenv').config()
+const hbs = require("nodemailer-express-handlebars");
 
 // Pull out OAuth2 from googleapis
 const OAuth2 = google.auth.OAuth2
@@ -49,16 +50,32 @@ const createTransporter = async () => {
 
 const sendCredentials = (nome, email, password) => {
     return new Promise((resolve, reject) => {
-        // Mail options
-        let mailOptions = {
-            from: process.env.SENDER_EMAIL,
-            to: email,
-            subject: "Le tue nuove credenziali",
-            text: "Ciao " + nome + ", accedi alla tua console PManager con le credenziali " + password
-        };
-
         createTransporter()
             .then((emailTransporter) => {
+
+                const options = {
+                    viewEngine: {
+                        extname: ".handlebars",
+                        layoutsDir: "./handlebars",
+                        defaultLayout: "register_template",
+                    },
+                    viewPath: "./handlebars",
+                    extname: ".handlebars",
+                }
+
+                mailTransport.use("compile", hbs(options))
+
+                const mailOptions = {
+                    from: process.env.SENDER_EMAIL,
+                    to: email,
+                    subject: "Le tue nuove credenziali PManager",
+                    template: "email_template",
+                    context: {
+                        nome,
+                        password
+                    },
+                }
+
                 emailTransporter.sendMail(mailOptions, (error, info) => {
                     if (error) {
                         console.log(error)
