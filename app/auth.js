@@ -48,7 +48,7 @@ const createTransporter = async () => {
     return transporter;
 };
 
-const sendCredentials = (nome, email, password) => {
+const sendCredentials = (nome, email, password, template) => {
     return new Promise((resolve, reject) => {
         createTransporter()
             .then((emailTransporter) => {
@@ -57,7 +57,7 @@ const sendCredentials = (nome, email, password) => {
                     viewEngine: {
                         extname: ".handlebars",
                         layoutsDir: "./app/hbs",
-                        defaultLayout: "register",
+                        defaultLayout: template,
                     },
                     viewPath: "./app/hbs",
                     extname: ".handlebars",
@@ -69,7 +69,7 @@ const sendCredentials = (nome, email, password) => {
                     from: process.env.SENDER_EMAIL,
                     to: email,
                     subject: "Le tue nuove credenziali PManager",
-                    template: "register",
+                    template,
                     context: {
                         nome,
                         password
@@ -95,8 +95,7 @@ const sendCredentials = (nome, email, password) => {
 const register = (utente) => {
     return new Promise((resolve, reject) => {
         let password = Math.random().toString(36).slice(-8)
-        console.log("Password generata:", password)
-        sendCredentials(utente.nome, utente.email, password)
+        sendCredentials(utente.nome, utente.email, password, "register")
             .then(() => {
                 utente.hash_pw = bcrypt.hashSync(password)
                 utente.first_access = true
@@ -162,7 +161,8 @@ router.post("/login", (req, res) => {
                                 return res.status(200).json({
                                     nome: utente.nome,
                                     token,
-                                    role: utente.ruolo
+                                    role: utente.ruolo,
+                                    first_access: utente.first_access
                                 })
                             } else {
                                 return res.status(401).send("Password errata");
@@ -174,6 +174,43 @@ router.post("/login", (req, res) => {
             })
     } catch (err) {
         return res.status(401).send("Inserire tutti i campi")
+    }
+})
+
+router.post("/resetPassword", (req, res) => {
+    try {
+
+        const { email } = req.body
+
+        if (validator.isEmpty(email) || !validator.isEmail(email)) {
+            return res.status(401).send("Email non valida")
+        }
+
+        Utente.findOne({ email })
+            .then((utente) => {
+                if (utente) {
+                    let password = Math.random().toString(36).slice(-8)
+                    hash_pw = bcrypt.hashSync(password)
+                    sendCredentials(utente.nome, email, password, "reset")
+                        .then(() => {
+                            Utente.updateOne({ email }, {hash_pw, first_access: true})
+                                .then(() => {
+                                    return res.status(201).send("Operazione riuscita")
+                                })
+                                .catch(() => {
+                                    return res.status(401).send("Errore nel salvataggio")
+                                })
+                        })
+                        .catch(() => {
+                            return res.status(401).send("Errore nell'invio delle credenziali")
+                        })
+                } else {
+                    return res.status(401).send("Email non valida")
+                }
+            })
+            
+    } catch (err) {
+        return res.status(401).send("Email non valida")
     }
 })
 
@@ -198,6 +235,30 @@ router.all("/*", (req, res, next) => {
         }
         next();
     });
+})
+
+router.post("/cambioPassword", (req, res) => {
+    try {
+
+        const { password } = req.body
+
+        if (validator.isEmpty(password)) {
+            return res.status(401).send("Password non valida")
+        }
+
+        hash_pw = bcrypt.hashSync(password)
+
+        Utente.findOneAndUpdate({ _id: req.auth.id }, { hash_pw, first_access: false })
+            .then((utente) => {
+                if (utente) {
+                    return res.status(200).send("Operazione confermata")
+                } else {
+                    return res.status(401).send("Errore salvataggio")
+                }
+            })
+    } catch (err) {
+        return res.status(401).send("Password non valida")
+    }
 })
 
 module.exports = {
