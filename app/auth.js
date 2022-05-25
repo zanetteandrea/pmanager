@@ -27,7 +27,7 @@ const createTransporter = async () => {
     const accessToken = await new Promise((resolve, reject) => {
         oauth2Client.getAccessToken((err, token) => {
             if (err) {
-                reject("Failed to create access token :( " + err);
+                reject("Invio email credenziali fallito");
             }
             resolve(token);
         });
@@ -56,20 +56,20 @@ const sendCredentials = (nome, email, password) => {
                 const options = {
                     viewEngine: {
                         extname: ".handlebars",
-                        layoutsDir: "./handlebars",
-                        defaultLayout: "register_template",
+                        layoutsDir: "./app/hbs",
+                        defaultLayout: "register",
                     },
-                    viewPath: "./handlebars",
+                    viewPath: "./app/hbs",
                     extname: ".handlebars",
                 }
 
-                mailTransport.use("compile", hbs(options))
+                emailTransporter.use("compile", hbs(options))
 
                 const mailOptions = {
                     from: process.env.SENDER_EMAIL,
                     to: email,
                     subject: "Le tue nuove credenziali PManager",
-                    template: "email_template",
+                    template: "register",
                     context: {
                         nome,
                         password
@@ -109,7 +109,7 @@ const register = (utente) => {
                     })
             })
             .catch(() => {
-                reject()
+                reject("Errore nella spedizione delle credenziali")
             })
     })
 }
