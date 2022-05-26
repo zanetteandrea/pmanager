@@ -1,12 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const Utente = require('./models/Utente.js');
+const Utente = require('./models/utente.js');
 const validator = require('validator');
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { google } = require("googleapis");
 const nodemailer = require("nodemailer");
-const ruoli = require('./models/Ruoli.js');
+const ruoli = require('./models/ruoli.js');
 require('dotenv').config()
 const hbs = require("nodemailer-express-handlebars");
 

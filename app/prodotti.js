@@ -1,10 +1,10 @@
 const express = require('express')
 const router = express.Router()
-const Prodotto = require('./models/Prodotto') // get our mongoose model
-const ruoli = require("./models/Ruoli")
+const Prodotto = require('./models/prodotto') // get our mongoose model
+const ruoli = require("./models/ruoli")
 const multer = require('multer')
 var validator = require('validator')
-const Rivenditore = require('./models/Rivenditore')
+const Rivenditore = require('./models/rivenditore')
 
 /**
  * @swagger
