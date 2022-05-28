@@ -117,9 +117,9 @@ const checkOrario = (orario) => {
     let now = new Date()
     return orario.some((turno) => {
         if (turno.giorno === now.getDay()) {
-            let inizio = new Date(turno.oraIniziale).toLocaleTimeString('it-IT')
-            let fine = new Date(turno.oraFinale).toLocaleTimeString('it-IT')
-            let oraNow = now.toLocaleTimeString('it-IT', {timeZone: 'Europe/Rome'})
+            let inizio = new Date(turno.oraIniziale).toLocaleTimeString('it-IT', {timeZone: 'Europe/Rome', hour: '2-digit', minute: '2-digit'})
+            let fine = new Date(turno.oraFinale).toLocaleTimeString('it-IT', {timeZone: 'Europe/Rome', hour: '2-digit', minute: '2-digit'})
+            let oraNow = now.toLocaleTimeString('it-IT', {timeZone: 'Europe/Rome', hour: '2-digit', minute: '2-digit'})
             if (inizio < oraNow && oraNow < fine) {
                 return true
             }
