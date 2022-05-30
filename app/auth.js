@@ -101,7 +101,10 @@ const register = (utente) => {
                 utente.first_access = true
                 utente.save()
                     .then((user) => {
-                        resolve(user)
+                        let obj = user.toObject()
+                        delete obj.hash_pw
+                        delete obj.first_access
+                        resolve(obj)
                     })
                     .catch(() => {
                         reject()
