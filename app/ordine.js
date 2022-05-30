@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const Rivenditore = require('./models/Rivenditore'); // get our mongoose model
+const Rivenditore = require('./models/rivenditore'); // get our mongoose model
 const ruoli = require('./models/ruoli');
 const Ordine = require('./models/Ordine');
-const Prodotto = require('./models/Prodotto');
+const Prodotto = require('./models/prodotto');
 
 /**
  * @swagger
@@ -377,7 +377,7 @@ router.get('', (req, res) => {
 
 router.patch('', async (req, res) => {
 
-    const {idOrdine, dataConsegna, prodotti} = req.body
+    const {_id, dataConsegna, prodotti} = req.body
     const listaIdProd = []
     prodottiOrdinabili = []
     const today = new Date();
@@ -385,11 +385,11 @@ router.patch('', async (req, res) => {
 
     if(req.auth.ruolo == ruoli.RIVENDITORE) {
 
-        let ordine = await Ordine.findById(idOrdine).exec()
+        let ordine = await Ordine.findById(_id).exec()
 
         //check se l'ordine esiste
         if(!ordine) {
-            res.status(404).send(`Ordine: ${idOrdine} non trovato`)
+            res.status(404).send(`Ordine: ${_id} non trovato`)
             return;
         }
         //check se la data di consegna dell'ordine già inserito è nel limite temporale consentito per la modifica
@@ -440,16 +440,29 @@ router.patch('', async (req, res) => {
                     //aggiornamento dati ordine
                     if(!exit) {
                         Ordine.findOneAndUpdate({
-                                "_id" : idOrdine
+                                "_id" : _id
                             },{
                                 $set: {"dataCreazione": ordine.dataCreazione, "dataConsegna": dataConsegna, "idRivenditore": ordine.idRivenditore, "prodotti": prodottiOrdinabili}
-                            })
-                            .then(() => {
-                                res.status(200).send('Ordine modificato con successo') 
-                            }).catch(() => {
-                                res.status(400).send('Errore durante la modifica')
-                                return;
-                            })
+                            },
+                            {new: true})
+                                .then((o) => {
+                                    let temp = {}
+                                    temp._id = o._id
+                                    temp.dataCreazione = o.dataCreazione
+                                    temp.dataConsegna = o.dataConsegna
+                                    temp.idRivenditore = o.idRivenditore
+                                    temp.modificabile = check_delivery(o.dataConsegna)
+                                    temp.totale = calc_totale(o.prodotti)
+                                    temp.prodotti = o.prodotti
+                                    res.status(200).send(temp)
+                                    return
+                                }).catch(() => {
+                                    res.status(400).send('Errore durante la modifica')
+                                    return
+                                })
+                    } else {
+                        res.status(400).send('Errore durante la modifica')
+                        return;
                     }
                 })
                 .catch(() => {
@@ -523,6 +536,7 @@ router.get('/spedizioni', async (req, res) => {
                 temp.nome = riv.nome
                 temp.email = riv.email
                 temp.telefono = riv.telefono
+                temp.indirizzo = riv.indirizzo
                 temp.prodotti = []
                 for(let j = 0; j<ordiniGiornalieri[i].prodotti.length; j++) {
                     let tmpProd = {}
