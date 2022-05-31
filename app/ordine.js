@@ -4,6 +4,7 @@ const Rivenditore = require('./models/rivenditore'); // get our mongoose model
 const ruoli = require('./models/ruoli');
 const Ordine = require('./models/Ordine');
 const Prodotto = require('./models/prodotto');
+const mongoose = require('mongoose')
 
 /**
  * @swagger
@@ -615,16 +616,37 @@ router.get('/produzione', async (req, res) => {
 
 router.get('/statistiche', (req, res) => {
     if (req.auth.ruolo == ruoli.AMM) {
+        let tomorrow = new Date()
+        tomorrow.setDate(tomorrow.getDate()+1)
+        tomorrow.setHours(0, 0, 0, 0)
         // Query prodotti più venduti
         let queryBestSeller = Ordine.aggregate([
+            {
+                '$match': {
+                    'dataConsegna': {
+                        '$lte': tomorrow.getTime()
+                    }
+                }
+            },
             {
                 '$unwind': {
                     'path': '$prodotti'
                 }
             },
             {
+                '$lookup': {
+                    'from': Prodotto.collection.name,
+                    'let': { 'id': { "$toObjectId": "$prodotti.id" } },
+                    'pipeline': [{ '$match': { '$expr': { '$eq': ["$_id", "$$id"] } } }],
+                    'as': 'prodData'
+                }
+            },
+            {
+                '$unwind': '$prodData'
+            },
+            {
                 '$group': {
-                    '_id': '$prodotti.id',
+                    '_id': '$prodData.nome',
                     'totale': {
                         '$sum': '$prodotti.quantita'
                     }
@@ -641,6 +663,13 @@ router.get('/statistiche', (req, res) => {
         ])
         // Query guadagni
         let queryRevenues = Ordine.aggregate([
+            {
+                '$match': {
+                    'dataConsegna': {
+                        '$lte': tomorrow.getTime()
+                    }
+                }
+            },
             {
                 '$unwind': {
                     'path': '$prodotti'
@@ -667,6 +696,13 @@ router.get('/statistiche', (req, res) => {
         ])
         // Query # ordini
         let queryNumOrders = Ordine.aggregate([
+            {
+                '$match': {
+                    'dataConsegna': {
+                        '$lte': tomorrow.getTime()
+                    }
+                }
+            },
             {
                 '$group': {
                     '_id': { '$toDate': '$dataConsegna' },
