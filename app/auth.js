@@ -7,7 +7,6 @@ const jwt = require("jsonwebtoken");
 const { google } = require("googleapis");
 const nodemailer = require("nodemailer");
 const ruoli = require('./models/ruoli.js');
-require('dotenv').config()
 const hbs = require("nodemailer-express-handlebars");
 
 // Pull out OAuth2 from googleapis
