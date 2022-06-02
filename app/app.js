@@ -8,7 +8,6 @@ const dipendente=require("./dipendente.js")
 const ordine=require("./ordine.js")
 swaggerJsdoc = require("swagger-jsdoc");
 swaggerUi = require("swagger-ui-express");
-require('dotenv').config()
 
 const options = {
     definition: {
