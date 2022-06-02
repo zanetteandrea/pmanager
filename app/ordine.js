@@ -4,7 +4,6 @@ const Rivenditore = require('./models/rivenditore'); // get our mongoose model
 const ruoli = require('./models/ruoli');
 const Ordine = require('./models/Ordine');
 const Prodotto = require('./models/prodotto');
-const mongoose = require('mongoose')
 
 /**
  * @swagger
@@ -160,29 +159,46 @@ const mongoose = require('mongoose')
 let exit = false
 
 function check_delivery(dataConsegna) {
-    const today = new Date();
-    const todayMilliseconds = today.getTime();
-    if (dataConsegna - todayMilliseconds <= 86400000) {
-        if (today.getHours() >= 20 && today.getMinutes() >= 1) {
-            return false
-        } else return true
-    } else return true
+    const tomorrow = new Date()
+    tomorrow.setHours(24, 0, 0, 0)
+    const diffInTime = new Date(Number(dataConsegna)).getTime() - tomorrow.getTime()
+    const oneDay = 1000 * 60 * 60 * 24
+    const opt = { timeZone: 'Europe/Rome', hour: '2-digit', minute: '2-digit' }
+    if (diffInTime >= 0) {
+        if (diffInTime >= oneDay) {
+            // Ordine tra più di 1 giorno
+            return true
+        } else {
+            // Ordine per domani - controllo se adesso sono oltre l'orario limite
+            let res = new Date().toLocaleTimeString("it-IT", opt) < "20:00"
+            return res
+        }
+    } else {
+        // Ordine passato
+        return false
+    }
+}
+
+function calc_totale(prodotti) {
+    let tot = 0
+    prodotti.forEach((p) => {
+        tot += p.prezzo * p.quantita
+    })
+    return tot
 }
 
 
 router.post('', async (req, res) => {
 
     exit = false
-    const today = new Date();
-    const todayMilliseconds = today.getTime();
 
     if (req.auth.ruolo == ruoli.RIVENDITORE) {
 
         const { dataConsegna, prodotti } = req.body
 
         //Deve essere inserito almeno un prodotto per ordine
-        if (!prodotti.length) {
-            res.status(400).send("nessun prodotto selezionato per l'ordine")
+        if (!prodotti.length && Array.isArray(prodotti)) {
+            res.status(400).send("Nessun prodotto selezionato")
             return;
         }
 
@@ -193,11 +209,11 @@ router.post('', async (req, res) => {
         })
         let findDuplicates = arr => arr.filter((item, index) => arr.indexOf(item) != index)
         if (findDuplicates(temp).length >= 1) {
-            res.status(400).send(`prodotto: [${findDuplicates(temp)}] inserito più volte`)
+            res.status(400).send(`Prodotto: [${findDuplicates(temp)}] inserito più volte`)
             return;
         }
         if (findDuplicates(dataConsegna).length >= 1) {
-            res.status(400).send(`data: [${new Date(Number(findDuplicates(dataConsegna))).toDateString()}] inserita più volte`)
+            res.status(400).send(`Stessa data inserita più volte`)
             return;
         }
 
@@ -208,9 +224,10 @@ router.post('', async (req, res) => {
         dataConsegna.forEach((data) => {
             if (!exit) {
                 //ciclo tutti gli ordini per cercare se uno ha la stessa data di consegna di una insertita nell'ordine
+                let options = { year: 'numeric', month: 'numeric', day: 'numeric' }
                 tempord.forEach((o) => {
                     if (!exit) {
-                        if (new Date(Number(o.dataConsegna)).toDateString() == new Date(Number(data)).toDateString()) {
+                        if (new Date(Number(o.dataConsegna)).toLocaleDateString('it-IT', options) == new Date(Number(data)).toLocaleDateString('it-IT', options)) {
                             exit = true
                         }
                     }
@@ -218,7 +235,7 @@ router.post('', async (req, res) => {
             }
         })
         if (exit) {
-            res.status(400).send("presente un ordine con stessa data")
+            res.status(400).send("Presente un ordine con stessa data")
             return;
         }
 
@@ -226,24 +243,16 @@ router.post('', async (req, res) => {
         //caso di ordine ricorrente, check su tutte le date inserite
         dataConsegna.forEach((data) => {
             if (!exit) {
-                //se la data di consegna è entro le 24h
-                if (data - todayMilliseconds <= 86400000) {
-                    //scarto le date precedenti al giorno corrente
-                    if (data - todayMilliseconds < 0) {
-                        res.status(400).send(`data: [${new Date(Number(data)).toDateString()}] non valida `)
-                        exit = true
-                        //il limite per l'inserimento di un ordine per il giorno successivo è entro le ore 20:01
-                    } else if (today.getHours() >= 20 && today.getMinutes() >= 1) {
-                        res.status(400).send(`fuori orario limite, [${new Date(Number(data)).toLocaleString()}] oltre [${today.toLocaleDateString()}, 20:00] `)
-                        exit = true
-                    }
-
+                if (!check_delivery(data)) {
+                    let options = { year: 'numeric', month: 'long', day: 'numeric' }
+                    res.status(400).send(`Data ${new Date(Number(data)).toLocaleDateString('it-IT', options)} non valida`)
+                    exit = true
                 }
             }
         })
 
         const listaIdProd = []
-        prodottiOrdinabili = []
+        const prodottiOrdinabili = []
 
         //Check se i prodotti ordinati sono presenti a catalogo del rivenditore
         if (!exit) {
@@ -264,7 +273,7 @@ router.post('', async (req, res) => {
                                     quantita: prod.quantita
                                 })
                             } else {
-                                res.status(403).send(`prodotto: [${prod.id}] non ordinabile`)
+                                res.status(403).send(`Prodotto: [${prod.id}] non ordinabile`)
                                 exit = true
                             }
                         }
@@ -272,10 +281,12 @@ router.post('', async (req, res) => {
                     });
                     // Creazione ordine singolo o multiplo in base a quante date il rivenditore ha selezionato
                     if (!exit) {
+                        const now = new Date()
+                        const nowMilliseconds = now.getTime()
                         Promise.all(
                             dataConsegna.map(data => {
                                 let ordine = new Ordine({
-                                    dataCreazione: todayMilliseconds,
+                                    dataCreazione: nowMilliseconds,
                                     dataConsegna: parseInt(data),
                                     idRivenditore: req.auth.id,
                                     prodotti: prodottiOrdinabili
@@ -284,19 +295,30 @@ router.post('', async (req, res) => {
                                 return ordine.save()
                                     .then((ord) => ord)
                                     .catch(() => {
-                                        res.status(400).send("errore durante la creazione dell'ordine")
+                                        res.status(400).send("Errore durante la creazione dell'ordine")
                                         return;
                                     })
                             })
                         ).then((ordini) => {
-                            res.status(201).send(ordini)
+                            const arrOrd = []
+                            ordini.forEach((o) => {
+                                let temp = {
+                                    _id: o._id,
+                                    dataCreazione: o.dataCreazione,
+                                    dataConsegna: o.dataConsegna,
+                                    idRivenditore: o.idRivenditore,
+                                    modificabile: check_delivery(o.dataConsegna),
+                                    totale: calc_totale(o.prodotti),
+                                    prodotti: o.prodotti
+                                }
+                                arrOrd.push(temp)
+                            })
+                            res.status(200).json(arrOrd)
                         })
-
                     }
                 })
                 .catch(() => {
-                    res.status(404).send('rivenditore non trovato')
-
+                    res.status(404).send('Rivenditore non trovato')
                 })
         }
     } else {
@@ -305,14 +327,6 @@ router.post('', async (req, res) => {
     }
 
 })
-
-function calc_totale(prodotti) {
-    let tot = 0
-    prodotti.forEach((p) => {
-        tot += p.prezzo * p.quantita
-    })
-    return tot
-}
 
 router.get('', (req, res) => {
 
@@ -323,7 +337,6 @@ router.get('', (req, res) => {
     if (req.auth.ruolo == ruoli.RIVENDITORE) {
 
         Ordine.find({ idRivenditore: req.auth.id })
-
             .then((ord) => {
                 ord.forEach((o) => {
 
@@ -343,13 +356,12 @@ router.get('', (req, res) => {
                 res.status(200).json(arrOrd)
             })
             .catch(() => {
-                res.status(404).send('non sono presenti ordini')
+                res.status(404).send('Errore GET ordini')
             })
 
         // se ruolo AMM recupero tutti gli ordini presenti a sistemi
     } else if (req.auth.ruolo == ruoli.AMM) {
         Ordine.find({})
-
             .then((ord) => {
                 ord.forEach((o) => {
 
@@ -365,12 +377,14 @@ router.get('', (req, res) => {
 
                 })
                 res.status(200).json(arrOrd)
+                return
             })
             .catch(() => {
-                res.status(404).send('non sono presenti ordini')
+                res.status(404).send('Errore GET ordini')
+                return
             })
     } else {
-        res.status(401).send("Non Autorizzato")
+        res.status(401).send("Non autorizzato")
         return;
     }
 })
@@ -378,7 +392,7 @@ router.get('', (req, res) => {
 
 router.patch('', async (req, res) => {
 
-    const { _id, dataConsegna, prodotti } = req.body
+    const { _id, prodotti } = req.body
     const listaIdProd = []
     prodottiOrdinabili = []
     const today = new Date();
@@ -395,22 +409,17 @@ router.patch('', async (req, res) => {
         }
         //check se la data di consegna dell'ordine già inserito è nel limite temporale consentito per la modifica
         if (!check_delivery(ordine.dataConsegna)) {
-            res.status(400).send("ordine non modificabile perchè quello già presente è fuori limite di tempo per la modifica")
-            return;
-        }
-        //check se la nuova data di consegna dell'ordine è nel limite temporale consentito
-        if (!check_delivery(dataConsegna)) {
-            res.status(400).send(`ordine non modificabile perchè la nuova data è fuori dal limite consentito [${new Date(Number(dataConsegna)).toLocaleString()}] oltre [${today.toLocaleDateString()}, 20:00] `)
+            res.status(400).send("Ordine non modificabile dopo le ore 20:00 del giorno precedente alla consegna")
             return;
         }
         //check se si sta cercando di modificare l'ordine appartenente ad un altro rivenditore
         if (ordine.idRivenditore != req.auth.id) {
-            res.status(403).send("ordine non modificabile perchè appartenente ad un altro rivenditore")
+            res.status(403).send("Ordine non modificabile perchè appartenente ad un altro utente")
             return;
         }
         //check se è stato inserito almeno un prodotto per l'ordine
-        if (!prodotti.length) {
-            res.status(400).send("nessun prodotto selezionato per l'ordine")
+        if (!prodotti.length && Array.isArray(prodotti)) {
+            res.status(400).send("Nessun prodotto selezionato")
             return;
         }
 
@@ -443,7 +452,7 @@ router.patch('', async (req, res) => {
                     Ordine.findOneAndUpdate({
                         "_id": _id
                     }, {
-                        $set: { "dataCreazione": ordine.dataCreazione, "dataConsegna": dataConsegna, "idRivenditore": ordine.idRivenditore, "prodotti": prodottiOrdinabili }
+                        $set: { "dataCreazione": ordine.dataCreazione, "idRivenditore": ordine.idRivenditore, "prodotti": prodottiOrdinabili }
                     },
                         { new: true })
                         .then((o) => {
@@ -467,12 +476,12 @@ router.patch('', async (req, res) => {
                 }
             })
             .catch(() => {
-                res.status(404).send('rivenditore non trovato')
-
+                res.status(404).send('Rivenditore non trovato')
+                return
             })
     } else {
         res.status(401).send("Non Autorizzato")
-        return;
+        return
     }
 });
 
@@ -480,30 +489,30 @@ router.delete('/:id', async (req, res) => {
 
     const today = new Date();
     const id = req.params.id
-    if (req.auth.ruolo == ruoli.AMM || req.auth.ruolo == ruoli.RIVENDITORE) {
+    if (req.auth.ruolo == ruoli.RIVENDITORE) {
         let ordine = await Ordine.findById(id).exec();
 
-        if (ordine.idRivenditore != req.auth.id && req.auth.ruolo == ruoli.RIVENDITORE) {
-            res.status(401).send("Eliminazione non autorizzata");
+        if (ordine.idRivenditore != req.auth.id) {
+            res.status(401).send("Ordine non cancellabile perchè appartenente ad un altro utente");
             return;
         }
         if (!ordine) {
-            res.status(404).send("Ordine Non Presente");
+            res.status(404).send("Ordine non presente");
             return;
         }
         //check se la data di consegna non è oltre il limite per la cancellazione dell'ordine
         if (!check_delivery(ordine.dataConsegna)) {
-            res.status(400).send(`ordine non cancellabile superato il limite di orario: data consegna: [${new Date(Number(ordine.dataConsegna)).toLocaleString()}] limite per modifica: [${today.toLocaleDateString()}, 20:00] `)
+            res.status(400).send("Ordine non cancellabile dopo le ore 20:00 del giorno precedente alla consegna")
             return;
         }
         try {
             await ordine.deleteOne()
-            res.status(204).send('Ordine Cancellato');
+            res.status(204).send();
         } catch {
-            res.status(400).send("Errore durante la rimozione");
+            res.status(400).send("Errore durante la cancellazione");
         }
     } else {
-        res.status(401).send("Non Autorizzato")
+        res.status(401).send("Non autorizzato")
         return;
     }
 });
@@ -513,10 +522,9 @@ router.get('/spedizioni', async (req, res) => {
     let produzioneGiornaliera = []
     let ordiniGiornalieri = []
 
-    let idRiv;
     exit = false
-    const today = new Date();
-    const todayDate = today.toDateString();
+    const options = { year: 'numeric', month: 'numeric', day: 'numeric' }
+    const todayDate = new Date().toLocaleDateString('it-IT', options)
 
     //recupero tutti gli ordini da spedire per la giornata corrente
     try {
@@ -524,7 +532,7 @@ router.get('/spedizioni', async (req, res) => {
 
             let ordini = await Ordine.find({})
             ordini.forEach((ord) => {
-                if (new Date(Number(ord.dataConsegna)).toDateString() == todayDate) {
+                if (new Date(Number(ord.dataConsegna)).toLocaleDateString('it-IT', options) == todayDate) {
                     ordiniGiornalieri.push(ord)
                 }
             })
@@ -551,11 +559,11 @@ router.get('/spedizioni', async (req, res) => {
             }
             res.status(200).json(produzioneGiornaliera)
         } else {
-            res.status(401).send("Non Autorizzato")
+            res.status(401).send("Non autorizzato")
             return;
         }
     } catch {
-        res.status(400).send("errore durante il recupero degli ordini")
+        res.status(400).send("Errore durante generazione spedizioni")
     }
 
 });
@@ -565,15 +573,15 @@ router.get('/produzione', async (req, res) => {
     let prodGiornaliera = []
 
     exit = false
-    const today = new Date();
-    const todayDate = today.toDateString();
+    const options = { year: 'numeric', month: 'numeric', day: 'numeric' }
+    const todayDate = new Date().toLocaleDateString('it-IT', options)
 
     try {
         if (req.auth.ruolo == ruoli.PANETTIERE) {
 
             let ordini = await Ordine.find({})
             ordini.forEach((ord) => {
-                if (new Date(Number(ord.dataConsegna)).toDateString() == todayDate) {
+                if (new Date(Number(ord.dataConsegna)).toLocaleDateString('it-IT', options) == todayDate) {
                     ordiniGiornalieri.push(ord)
                 }
             })
@@ -605,11 +613,11 @@ router.get('/produzione', async (req, res) => {
             }
             res.status(200).json(prodGiornaliera)
         } else {
-            res.status(401).send("Non Autorizzato")
+            res.status(401).send("Non autorizzato")
             return;
         }
     } catch {
-        res.status(400).send("errore durante il recupero della produzione")
+        res.status(400).send("Errore durante generazione produzione")
     }
 
 });
@@ -617,7 +625,7 @@ router.get('/produzione', async (req, res) => {
 router.get('/statistiche', (req, res) => {
     if (req.auth.ruolo == ruoli.AMM) {
         let tomorrow = new Date()
-        tomorrow.setDate(tomorrow.getDate()+1)
+        tomorrow.setDate(tomorrow.getDate() + 1)
         tomorrow.setHours(0, 0, 0, 0)
         // Query prodotti più venduti
         let queryBestSeller = Ordine.aggregate([
