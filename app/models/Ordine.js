@@ -6,9 +6,16 @@ var Schema = mongoose.Schema;
 module.exports = mongoose.model('Ordine', new Schema({
     dataCreazione: Number,
     dataConsegna: Number,
-    idRivenditore: String,
+    rivenditore: {
+        id: String,
+        nome: String,
+        email: String,
+        telefono: String,
+        indirizzo: String
+    },
     prodotti: [{
         id: String,
+        nome: String,
         prezzo: Number,
         quantita: Number
     }]
