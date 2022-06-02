@@ -404,6 +404,10 @@ router.patch('', async(req, res) => {
             res.status(400).send('Campo ' + ris.data + ' non valido')
             return
         }
+        if (req.body._id === undefined || validator.isEmpty(req.body._id) || req.body._id === null) {
+            res.status(400).send('Campo _id non valido')
+            return
+        }
 
         //richiedo tutti i prodotti presenti nel database e mappo tutti i nomi tranne quello del prodotto di cui si vuole fare la modifica
         //in un nuovo array che passo alla funzione check_duplicate, se esiste già un prodotto con quel nome, restituisco il codice 409
