@@ -218,7 +218,7 @@ router.post('', async (req, res) => {
         }
 
 
-        let tempord = await Ordine.find({ idRivenditore: req.auth.id })
+        let tempord = await Ordine.find({ "rivenditore.id": req.auth.id })
         //check se non sono presenti ordini con la stessa data
         //ciclo ogni data inserita nell'ordine
         dataConsegna.forEach((data) => {
@@ -252,7 +252,6 @@ router.post('', async (req, res) => {
         })
 
         const listaIdProd = []
-        const prodottiOrdinabili = []
 
         //Check se i prodotti ordinati sono presenti a catalogo del rivenditore
         if (!exit) {
@@ -263,59 +262,61 @@ router.post('', async (req, res) => {
                         listaIdProd.push(c.id)
                     })
 
-                    // Recupero dei prezzi personalizzati per il rivenditore
-                    prodotti.forEach(prod => {
-                        if (!exit) {
-                            if (listaIdProd.includes(prod.id)) {
-                                prodottiOrdinabili.push({
-                                    id: prod.id,
-                                    prezzo: catalogoRiv.find(p => p.id === prod.id).prezzo,
-                                    quantita: prod.quantita
+                    Promise.all(
+                        prodotti.map(prod => {
+                            return Prodotto.findById(prod.id).select("nome")
+                                .then(({ nome }) => {
+                                    return {
+                                        id: prod.id,
+                                        prezzo: catalogoRiv.find(p => p.id === prod.id).prezzo,
+                                        quantita: prod.quantita,
+                                        nome
+                                    }
                                 })
-                            } else {
-                                res.status(403).send(`Prodotto: [${prod.id}] non ordinabile`)
-                                exit = true
-                            }
-                        }
-
-                    });
-                    // Creazione ordine singolo o multiplo in base a quante date il rivenditore ha selezionato
-                    if (!exit) {
-                        const now = new Date()
-                        const nowMilliseconds = now.getTime()
-                        Promise.all(
-                            dataConsegna.map(data => {
-                                let ordine = new Ordine({
-                                    dataCreazione: nowMilliseconds,
-                                    dataConsegna: parseInt(data),
-                                    idRivenditore: req.auth.id,
-                                    prodotti: prodottiOrdinabili
-                                });
-
-                                return ordine.save()
-                                    .then((ord) => ord)
-                                    .catch(() => {
-                                        res.status(400).send("Errore durante la creazione dell'ordine")
-                                        return;
-                                    })
-                            })
-                        ).then((ordini) => {
-                            const arrOrd = []
-                            ordini.forEach((o) => {
-                                let temp = {
-                                    _id: o._id,
-                                    dataCreazione: o.dataCreazione,
-                                    dataConsegna: o.dataConsegna,
-                                    idRivenditore: o.idRivenditore,
-                                    modificabile: check_delivery(o.dataConsegna),
-                                    totale: calc_totale(o.prodotti),
-                                    prodotti: o.prodotti
-                                }
-                                arrOrd.push(temp)
-                            })
-                            res.status(200).json(arrOrd)
                         })
-                    }
+                    )
+                        .then((prodottiOrdinabili) => {
+                            // Creazione ordine singolo o multiplo in base a quante date il rivenditore ha selezionato
+                            const now = new Date()
+                            const nowMilliseconds = now.getTime()
+                            Promise.all(
+                                dataConsegna.map(data => {
+                                    let ordine = new Ordine({
+                                        dataCreazione: nowMilliseconds,
+                                        dataConsegna: parseInt(data),
+                                        rivenditore: {
+                                            id: riv._id,
+                                            nome: riv.nome,
+                                            email: riv.email,
+                                            telefono: riv.telefono,
+                                            indirizzo: riv.indirizzo
+                                        },
+                                        prodotti: prodottiOrdinabili
+                                    });
+
+                                    return ordine.save()
+                                        .then((ord) => ord)
+                                        .catch(() => {
+                                            res.status(400).send("Errore durante la creazione dell'ordine")
+                                            return;
+                                        })
+                                })
+                            ).then((ordini) => {
+                                const arrOrd = []
+                                ordini.forEach((ord) => {
+                                    let obj = ord.toObject()
+                                    delete obj.rivenditore
+                                    obj.modificabile = check_delivery(ord.dataConsegna)
+                                    obj.totale = calc_totale(ord.prodotti)
+                                    arrOrd.push(obj)
+                                })
+                                res.status(200).json(arrOrd)
+                            })
+                        })
+                        .catch((err) => {
+                            res.status(403).send(err)
+                            exit = true
+                        })
                 })
                 .catch(() => {
                     res.status(404).send('Rivenditore non trovato')
@@ -330,51 +331,36 @@ router.post('', async (req, res) => {
 
 router.get('', (req, res) => {
 
-    let arrOrd = []
+    const arrOrd = []
     exit = false
 
     // se ruolo RIVENDITORE recupero tutti gli ordini da lui inseriti a sistemi
     if (req.auth.ruolo == ruoli.RIVENDITORE) {
 
-        Ordine.find({ idRivenditore: req.auth.id })
-            .then((ord) => {
-                ord.forEach((o) => {
-
-                    let temp = {}
-                    temp._id = o._id
-                    temp.dataCreazione = o.dataCreazione
-                    temp.dataConsegna = o.dataConsegna
-                    temp.idRivenditore = o.idRivenditore
-                    temp.modificabile = check_delivery(o.dataConsegna)
-                    temp.totale = calc_totale(o.prodotti)
-                    temp.prodotti = o.prodotti
-
-
-                    arrOrd.push(temp)
-
+        Ordine.find({ "rivenditore.id": req.auth.id }).select("_id dataCreazione dataConsegna prodotti")
+            .then((ordini) => {
+                ordini.forEach((ord) => {
+                    let obj = ord.toObject()
+                    obj.modificabile = check_delivery(ord.dataConsegna)
+                    obj.totale = calc_totale(ord.prodotti)
+                    arrOrd.push(obj)
                 })
                 res.status(200).json(arrOrd)
+                return
             })
             .catch(() => {
                 res.status(404).send('Errore GET ordini')
+                return
             })
 
         // se ruolo AMM recupero tutti gli ordini presenti a sistemi
     } else if (req.auth.ruolo == ruoli.AMM) {
-        Ordine.find({})
-            .then((ord) => {
-                ord.forEach((o) => {
-
-                    let temp = {}
-                    temp._id = o._id
-                    temp.dataCreazione = o.dataCreazione
-                    temp.dataConsegna = o.dataConsegna
-                    temp.idRivenditore = o.idRivenditore
-                    temp.modificabile = check_delivery(o.dataConsegna)
-                    temp.totale = calc_totale(o.prodotti)
-                    temp.prodotti = o.prodotti
-                    arrOrd.push(temp)
-
+        Ordine.find({}).select("_id dataCreazione dataConsegna prodotti rivenditore")
+            .then((ordini) => {
+                ordini.forEach((ord) => {
+                    let obj = ord.toObject()
+                    obj.totale = calc_totale(ord.prodotti)
+                    arrOrd.push(obj)
                 })
                 res.status(200).json(arrOrd)
                 return
@@ -394,8 +380,6 @@ router.patch('', async (req, res) => {
 
     const { _id, prodotti } = req.body
     const listaIdProd = []
-    prodottiOrdinabili = []
-    const today = new Date();
     exit = false
 
     if (req.auth.ruolo == ruoli.RIVENDITORE) {
@@ -413,7 +397,7 @@ router.patch('', async (req, res) => {
             return;
         }
         //check se si sta cercando di modificare l'ordine appartenente ad un altro rivenditore
-        if (ordine.idRivenditore != req.auth.id) {
+        if (ordine.rivenditore.id != req.auth.id) {
             res.status(403).send("Ordine non modificabile perchè appartenente ad un altro utente")
             return;
         }
@@ -432,48 +416,51 @@ router.patch('', async (req, res) => {
                 })
 
                 // Recupero dei prezzi personalizzati per il rivenditore
-                prodotti.forEach(prod => {
-                    if (!exit) {
-                        if (listaIdProd.includes(prod.id)) {
-                            prodottiOrdinabili.push({
-                                id: prod.id,
-                                prezzo: catalogoRiv.find(p => p.id === prod.id).prezzo,
-                                quantita: prod.quantita
+                Promise.all(
+                    prodotti.map(prod => {
+                        return Prodotto.findById(prod.id).select("nome")
+                            .then(({ nome }) => {
+                                // Mantengo fissi i prezzi dei prodotti già selezionati al momento della creazione dell'ordine
+                                let index = ordine.prodotti.findIndex((p) => p.id === prod.id)
+                                let prezzo
+                                if (index >= 0) {
+                                    prezzo = ordine.prodotti[index].prezzo
+                                } else {
+                                    prezzo = catalogoRiv.find(p => p.id === prod.id).prezzo
+                                }
+                                return {
+                                    id: prod.id,
+                                    prezzo,
+                                    quantita: prod.quantita,
+                                    nome
+                                }
                             })
-                        } else {
-                            res.status(403).send(`prodotto con id: ${prod.id} non ordinabile`)
-                            exit = true
-                        }
-                    }
-                });
-
-                //aggiornamento dati ordine
-                if (!exit) {
-                    Ordine.findOneAndUpdate({
-                        "_id": _id
-                    }, {
-                        $set: { "dataCreazione": ordine.dataCreazione, "idRivenditore": ordine.idRivenditore, "prodotti": prodottiOrdinabili }
-                    },
-                        { new: true })
-                        .then((o) => {
-                            let temp = {}
-                            temp._id = o._id
-                            temp.dataCreazione = o.dataCreazione
-                            temp.dataConsegna = o.dataConsegna
-                            temp.idRivenditore = o.idRivenditore
-                            temp.modificabile = check_delivery(o.dataConsegna)
-                            temp.totale = calc_totale(o.prodotti)
-                            temp.prodotti = o.prodotti
-                            res.status(200).send(temp)
-                            return
-                        }).catch(() => {
-                            res.status(400).send('Errore durante la modifica')
-                            return
-                        })
-                } else {
-                    res.status(400).send('Errore durante la modifica')
-                    return;
-                }
+                    })
+                )
+                    .then((prodottiOrdinabili) => {
+                        // Aggiornamento dati ordine
+                        Ordine.findOneAndUpdate({
+                            "_id": _id
+                        }, {
+                            $set: { "prodotti": prodottiOrdinabili }
+                        },
+                            { new: true })
+                            .then((ord) => {
+                                let obj = ord.toObject()
+                                delete obj.rivenditore
+                                obj.modificabile = check_delivery(ord.dataConsegna)
+                                obj.totale = calc_totale(ord.prodotti)
+                                res.status(200).send(obj)
+                                return
+                            }).catch(() => {
+                                res.status(400).send('Errore durante la modifica')
+                                return
+                            })
+                    })
+                    .catch(() => {
+                        res.status(400).send('Inserito prodotto non ordinabile')
+                        return
+                    })
             })
             .catch(() => {
                 res.status(404).send('Rivenditore non trovato')
@@ -487,17 +474,16 @@ router.patch('', async (req, res) => {
 
 router.delete('/:id', async (req, res) => {
 
-    const today = new Date();
     const id = req.params.id
     if (req.auth.ruolo == ruoli.RIVENDITORE) {
         let ordine = await Ordine.findById(id).exec();
 
-        if (ordine.idRivenditore != req.auth.id) {
-            res.status(401).send("Ordine non cancellabile perchè appartenente ad un altro utente");
-            return;
-        }
         if (!ordine) {
             res.status(404).send("Ordine non presente");
+            return;
+        }
+        if (ordine.rivenditore.id != req.auth.id) {
+            res.status(401).send("Ordine non cancellabile perchè appartenente ad un altro utente");
             return;
         }
         //check se la data di consegna non è oltre il limite per la cancellazione dell'ordine
@@ -519,7 +505,7 @@ router.delete('/:id', async (req, res) => {
 
 
 router.get('/spedizioni', async (req, res) => {
-    let produzioneGiornaliera = []
+    let spedizioniGiornaliere = []
     let ordiniGiornalieri = []
 
     exit = false
@@ -538,9 +524,8 @@ router.get('/spedizioni', async (req, res) => {
             })
             for (let i = 0; i < ordiniGiornalieri.length; i++) {
 
-                let riv = await Rivenditore.findById(ordiniGiornalieri[i].idRivenditore)
+                let riv = await Rivenditore.findById(ordiniGiornalieri[i].rivenditore.id)
                 let temp = {}
-                let p;
                 temp.id = ordiniGiornalieri[i].id
                 temp.nome = riv.nome
                 temp.email = riv.email
@@ -549,15 +534,14 @@ router.get('/spedizioni', async (req, res) => {
                 temp.prodotti = []
                 for (let j = 0; j < ordiniGiornalieri[i].prodotti.length; j++) {
                     let tmpProd = {}
-                    p = await Prodotto.findById(ordiniGiornalieri[i].prodotti[j].id)
-                    tmpProd.nome = p.nome
+                    tmpProd.nome = ordiniGiornalieri[i].prodotti[j].nome
                     tmpProd.quantita = ordiniGiornalieri[i].prodotti[j].quantita
                     temp.prodotti.push(tmpProd)
                 }
-                produzioneGiornaliera.push(temp)
+                spedizioniGiornaliere.push(temp)
 
             }
-            res.status(200).json(produzioneGiornaliera)
+            res.status(200).json(spedizioniGiornaliere)
         } else {
             res.status(401).send("Non autorizzato")
             return;
@@ -588,7 +572,7 @@ router.get('/produzione', async (req, res) => {
             for (let i = 0; i < ordiniGiornalieri.length; i++) {
                 for (let j = 0; j < ordiniGiornalieri[i].prodotti.length; j++) {
                     let tmpProd = {}
-                    p = await Prodotto.findById(ordiniGiornalieri[i].prodotti[j].id)
+                    let p = await Prodotto.findById(ordiniGiornalieri[i].prodotti[j].id)
 
                     if (!prodGiornaliera.find((obj) => { return p.nome == obj.nome })) {
                         tmpProd.nome = p.nome
