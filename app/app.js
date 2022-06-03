@@ -3,9 +3,11 @@ const app = express();
 const cors = require("cors")
 const auth = require("./auth.js");
 const prodotti = require("./prodotti.js")
+const rivenditore = require("./rivenditore.js")
+const dipendente=require("./dipendente.js")
+const ordine=require("./ordine.js")
 swaggerJsdoc = require("swagger-jsdoc");
 swaggerUi = require("swagger-ui-express");
-require('dotenv').config()
 
 const options = {
     definition: {
@@ -43,12 +45,12 @@ app.use(
     swaggerUi.serve,
     swaggerUi.setup(specs)
 )
-
-app.use(auth.router)
-
-app.use('/images', express.static('app/images'))
-
+app.use(auth.router);
+app.use('/api/v1/rivenditore', rivenditore);
 app.use('/api/v1/prodotti', prodotti)
+app.use('/api/v1/dipendente', dipendente);
+app.use('/api/v1/ordini', ordine);
+app.use('/images', express.static('/images'))
 
 
 module.exports = app;

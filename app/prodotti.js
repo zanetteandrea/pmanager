@@ -1,10 +1,10 @@
 const express = require('express')
 const router = express.Router()
-const Prodotto = require('./models/Prodotto') // get our mongoose model
-const ruoli = require("./models/Ruoli")
+const Prodotto = require('./models/prodotto') // get our mongoose model
+const ruoli = require("./models/ruoli")
 const multer = require('multer')
 var validator = require('validator')
-const Rivenditore = require('./models/Rivenditore')
+const Rivenditore = require('./models/rivenditore')
 
 /**
  * @swagger
@@ -402,6 +402,10 @@ router.patch('', async(req, res) => {
         var ris = check_dati(req)
         if(!ris.valid){
             res.status(400).send('Campo ' + ris.data + ' non valido')
+            return
+        }
+        if (req.body._id === undefined || validator.isEmpty(req.body._id) || req.body._id === null) {
+            res.status(400).send('Campo _id non valido')
             return
         }
 
