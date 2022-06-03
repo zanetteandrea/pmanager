@@ -5,6 +5,7 @@ const Utente = require('./models/utente')
 const validator = require('validator');
 const auth = require('./auth');
 const ruoli = require('./models/ruoli');
+const Ordine = require('./models/Ordine')
 /**
  * @swagger
  * /Rivenditore:
@@ -130,14 +131,12 @@ const ruoli = require('./models/ruoli');
  *      schema:
  *         type: String
  *      responses:
- *         204:
+ *         200:
  *           description: Rivenditore rimosso dal sistema
- *         400:
- *           description: Errore durante la rimozione
- *         401:
- *           description: Non autorizzato
+ *         500:
+ *           description: Errore nell'eliminazione del rivenditore
  *         404:
- *           description: Rivenditore non presente
+ *           description: Rivenditore inesistente
 */
 
 function check_fields(riv) {
@@ -234,7 +233,7 @@ router.post('', (req, res) => {
         });
 
         check_duplicate(rivenditore)
-                .then((duplicate) => {
+            .then((duplicate) => {
                 if (duplicate) {
                     res.status(400).send('Email già presente nel sistema');
                     return;
@@ -261,23 +260,39 @@ router.post('', (req, res) => {
 });
 
 // DELETE RIVENDITORE
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', (req, res) => {
 
     const _id = req.params.id
     if (req.auth.ruolo == ruoli.AMM) {
-        let rivenditore = await Rivenditore.findById(_id).exec();
-        if (!rivenditore) {
-            res.status(404).send("Rivenditore Non Presente");
-            return;
-        }
-        try {
-            await rivenditore.deleteOne()
-            res.status(204).send("Rivendenditore rimosso");
-        } catch {
-            res.status(400).send("Errore durante la rimozione");
-        }
+        Rivenditore.findById(_id)
+            .then((rivenditore) => {
+                rivenditore.deleteOne()
+                    .then(() => {
+                        // Elimino tutti gli ordini futuri di questo rivenditore
+                        let tomorrow = new Date()
+                        tomorrow.setHours(24, 0, 0, 0)
+                        Ordine.deleteMany({ "rivenditore.id": _id, "dataConsegna": { "$gte": tomorrow.getTime() } })
+                            .then(() => {
+                                res.sendStatus(200)
+                                return
+                            })
+                            .catch(() => {
+                                res.status(500).send("Errore nell'eliminazione degli ordini futuri")
+                                return
+                            })
+                    })
+                    .catch(() => {
+                        res.status(500).send("Errore nell'eliminazione del rivenditore")
+                        return
+                    })
+            })
+            .catch(() => {
+                res.status(404).send("Rivenditore inesistente")
+                return
+            })
     } else {
         res.status(401).send("Non autorizzato");
+        return
     }
 });
 
