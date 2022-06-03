@@ -184,7 +184,7 @@ function calc_totale(prodotti) {
     prodotti.forEach((p) => {
         tot += p.prezzo * p.quantita
     })
-    return tot
+    return tot.toFixed(2)
 }
 
 
