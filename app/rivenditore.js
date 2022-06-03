@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const Rivenditore = require('./models/Rivenditore') // get our mongoose model
-const Utente = require('./models/Utente')
+const Rivenditore = require('./models/rivenditore') // get our mongoose model
+const Utente = require('./models/utente')
 const validator = require('validator');
 const auth = require('./auth');
 const ruoli = require('./models/ruoli');
@@ -10,6 +10,10 @@ const ruoli = require('./models/ruoli');
  * /Rivenditore:
  *   get:
  *     summary: Ritorna tutti i rivenditori presenti nel sistema in formato json
+ *     parameters:
+ *       - in: header
+ *         name: x-access-token
+ *         description: token per effettuare l'accesso controllato
  *     requestBody:
  *        required: true
  *        content:
@@ -20,10 +24,16 @@ const ruoli = require('./models/ruoli');
  *               example: {"_id": "6284eb9ac1e5c03bd845a60a", "nome": "Poli", "email": "poli@supermercato.it", "telefono": "3475264874", "indirizzo": "via san giuseppe 35 38088 spiazzo", "catalogo": [{"id": "mantovana","prezzo": 5}]}
  *     responses:
  *       200:
- *         description: OK           
+ *         description: OK  
+ *       401:
+ *         description: Non autorizzato         
  * 
  *   post:
  *     summary: Crea un nuovo Rivenditore
+ *     parameters:
+ *       - in: header
+ *         name: x-access-token
+ *         description: token per effettuare l'accesso controllato
  *     requestBody:
  *       required: true
  *       content:
@@ -57,10 +67,14 @@ const ruoli = require('./models/ruoli');
  *       400:
  *         description: Dati del Rivenditore inseriti non validi o Rivenditore già presente
  *       401:
- *         description: Tentativo di aggiunta non autorizzato
+ *         description: Non autorizzato
  *  
  *   patch:
  *     summary: Modifica un Rivenditore
+ *     parameters:
+ *       - in: header
+ *         name: x-access-token
+ *         description: token per effettuare l'accesso controllato
  *     requestBody:
  *       required: true
  *       content:
@@ -97,6 +111,8 @@ const ruoli = require('./models/ruoli');
  *         description: Rivenditore modificato con successo
  *       400:
  *         description: Dati inseriti non validi
+ *       401:
+ *           description: Non autorizzato
  *       404:
  *         description: Rivenditore non trovato
  * /Rivenditore/:id:
@@ -108,6 +124,9 @@ const ruoli = require('./models/ruoli');
  *       - in: path
  *         name: id
  *         description: id del Rivenditore da eliminare
+ *       - in: header
+ *         name: x-access-token
+ *         description: token per effettuare l'accesso controllato
  *      schema:
  *         type: String
  *      responses:
@@ -115,6 +134,8 @@ const ruoli = require('./models/ruoli');
  *           description: Rivenditore rimosso dal sistema
  *         400:
  *           description: Errore durante la rimozione
+ *         401:
+ *           description: Non autorizzato
  *         404:
  *           description: Rivenditore non presente
 */
@@ -193,7 +214,7 @@ router.get('', (req, res) => {
                 return res.status(200).send(riv)
             })
     } else {
-        return res.status(401).send('Accesso non Autorizzato');
+        return res.status(401).send('Non Autorizzato');
     }
 })
 
@@ -234,7 +255,7 @@ router.post('', (req, res) => {
 
             })
     } else {
-        res.status(401).send('Accesso non Autorizzato');
+        res.status(401).send('Non Autorizzato');
     }
 
 });
@@ -243,16 +264,20 @@ router.post('', (req, res) => {
 router.delete('/:id', async (req, res) => {
 
     const _id = req.params.id
-    let rivenditore = await Rivenditore.findById(_id).exec();
-    if (!rivenditore) {
-        res.status(404).send("Rivenditore Non Presente");
-        return;
-    }
-    try {
-        await rivenditore.deleteOne()
-        res.status(204).send("Rivendenditore rimosso");
-    } catch {
-        res.status(400).send("Errore durante la rimozione");
+    if (req.auth.ruolo == ruoli.AMM) {
+        let rivenditore = await Rivenditore.findById(_id).exec();
+        if (!rivenditore) {
+            res.status(404).send("Rivenditore Non Presente");
+            return;
+        }
+        try {
+            await rivenditore.deleteOne()
+            res.status(204).send("Rivendenditore rimosso");
+        } catch {
+            res.status(400).send("Errore durante la rimozione");
+        }
+    } else {
+        res.status(401).send("Non autorizzato");
     }
 });
 
@@ -262,31 +287,33 @@ router.patch('', (req, res) => {
 
     const { _id, nome, email, telefono, indirizzo, catalogo } = req.body
 
-    let rivenditore = new Rivenditore({
-        nome,
-        email,
-        telefono,
-        indirizzo,
-        catalogo
-    });
+    if (req.auth.ruolo == ruoli.AMM) {
+        let rivenditore = new Rivenditore({
+            nome,
+            email,
+            telefono,
+            indirizzo,
+            catalogo
+        });
 
-    let check = check_fields(rivenditore)
-    if (!check.valid) {
-        res.status(400).send(`Campo [${check.data}] non valido`);
-    } else {
-        Rivenditore.findOneAndUpdate({
-            "_id": _id
-        }, {
-            $set: { "nome": rivenditore.nome, "email": rivenditore.email, "telefono": rivenditore.telefono, "indirizzo": rivenditore.indirizzo, "catalogo": rivenditore.catalogo }
-        })
-            .then(() => {
-                res.status(200).send('Rivenditore modificato con successo')
-            }).catch(() => {
-                res.status(404).send('Rivenditore non trovato')
-                return;
+        let check = check_fields(rivenditore)
+        if (!check.valid) {
+            res.status(400).send(`Campo [${check.data}] non valido`);
+        } else {
+            Rivenditore.findOneAndUpdate({
+                "_id": _id
+            }, {
+                $set: { "nome": rivenditore.nome, "email": rivenditore.email, "telefono": rivenditore.telefono, "indirizzo": rivenditore.indirizzo, "catalogo": rivenditore.catalogo }
             })
-
-
+                .then(() => {
+                    res.status(200).send('Rivenditore modificato con successo')
+                }).catch(() => {
+                    res.status(404).send('Rivenditore non trovato')
+                    return;
+                })
+        }
+    } else {
+        res.status(401).send("Non autorizzato");
     }
 
 });

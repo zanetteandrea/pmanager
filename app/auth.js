@@ -6,7 +6,8 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { google } = require("googleapis");
 const nodemailer = require("nodemailer");
-require('dotenv').config()
+const ruoli = require('./models/ruoli.js');
+const hbs = require("nodemailer-express-handlebars");
 
 // Pull out OAuth2 from googleapis
 const OAuth2 = google.auth.OAuth2
@@ -25,7 +26,7 @@ const createTransporter = async () => {
     const accessToken = await new Promise((resolve, reject) => {
         oauth2Client.getAccessToken((err, token) => {
             if (err) {
-                reject("Failed to create access token :( " + err);
+                reject("Invio email credenziali fallito");
             }
             resolve(token);
         });
@@ -46,18 +47,34 @@ const createTransporter = async () => {
     return transporter;
 };
 
-const sendCredentials = (nome, email, password) => {
+const sendCredentials = (nome, email, password, template) => {
     return new Promise((resolve, reject) => {
-        // Mail options
-        let mailOptions = {
-            from: process.env.SENDER_EMAIL,
-            to: email,
-            subject: "Le tue nuove credenziali",
-            text: "Ciao " + nome + ", accedi alla tua console PManager con le credenziali " + password
-        };
-
         createTransporter()
             .then((emailTransporter) => {
+
+                const options = {
+                    viewEngine: {
+                        extname: ".handlebars",
+                        layoutsDir: "./app/hbs",
+                        defaultLayout: template,
+                    },
+                    viewPath: "./app/hbs",
+                    extname: ".handlebars",
+                }
+
+                emailTransporter.use("compile", hbs(options))
+
+                const mailOptions = {
+                    from: process.env.SENDER_EMAIL,
+                    to: email,
+                    subject: "Le tue nuove credenziali PManager",
+                    template,
+                    context: {
+                        nome,
+                        password
+                    },
+                }
+
                 emailTransporter.sendMail(mailOptions, (error, info) => {
                     if (error) {
                         console.log(error)
@@ -77,23 +94,39 @@ const sendCredentials = (nome, email, password) => {
 const register = (utente) => {
     return new Promise((resolve, reject) => {
         let password = Math.random().toString(36).slice(-8)
-        console.log("Password generata: ", password)
-        sendCredentials(utente.nome, utente.email, password)
+        sendCredentials(utente.nome, utente.email, password, "register")
             .then(() => {
                 utente.hash_pw = bcrypt.hashSync(password)
                 utente.first_access = true
                 utente.save()
-                    .then(() => {
-                        resolve()
+                    .then((user) => {
+                        let obj = user.toObject()
+                        delete obj.hash_pw
+                        delete obj.first_access
+                        resolve(obj)
                     })
                     .catch(() => {
-                        console.log("Errore salvataggio")
                         reject()
                     })
             })
             .catch(() => {
-                reject()
+                reject("Errore nella spedizione delle credenziali")
             })
+    })
+}
+
+const checkOrario = (orario) => {
+    let now = new Date()
+    return orario.some((turno) => {
+        if (turno.giorno === now.getDay()) {
+            let inizio = new Date(turno.oraIniziale).toLocaleTimeString('it-IT', {timeZone: 'Europe/Rome', hour: '2-digit', minute: '2-digit'})
+            let fine = new Date(turno.oraFinale).toLocaleTimeString('it-IT', {timeZone: 'Europe/Rome', hour: '2-digit', minute: '2-digit'})
+            let oraNow = now.toLocaleTimeString('it-IT', {timeZone: 'Europe/Rome', hour: '2-digit', minute: '2-digit'})
+            if (inizio < oraNow && oraNow < fine) {
+                return true
+            }
+        }
+        return false
     })
 }
 
@@ -105,37 +138,81 @@ router.post("/login", (req, res) => {
         if (!validator.isEmail(req.body.email) || validator.isEmpty(req.body.password)) {
             return res.status(401).send("Inserire dati validi")
         }
-        
-        Utente.findOne({ email }).then((utente) => {
-            if (utente) {
-                bcrypt.compare(password, utente.hash_pw)
-                    .then((isEqual) => {
-                        if (isEqual) {
-                            const token = jwt.sign(
-                                {
-                                    id: utente._id,
-                                    ruolo: utente.ruolo
-                                },
-                                process.env.SECRET_KEY,
-                                {
-                                    expiresIn: "7d",
+
+        Utente.findOne({ email })
+            .then((utente) => {
+                if (utente) {
+                    bcrypt.compare(password, utente.hash_pw)
+                        .then((isEqual) => {
+                            if (isEqual) {
+                                if (utente.ruolo == ruoli.SPEDIZIONIERE || utente.ruolo == ruoli.PANETTIERE) {
+                                    if (!checkOrario(utente._doc.orario)) {
+                                        return res.status(401).send("Tentativo di accesso fuori orario lavorativo")
+                                    }
                                 }
-                            )
-                            return res.status(200).json({
-                                nome: utente.nome,
-                                token,
-                                role: utente.ruolo
-                            })
-                        } else {
-                            return res.status(401).send("Password errata");
-                        }
-                    })
-            } else {
-                return res.status(401).send("Email non valida");
-            }
-        })
+                                const token = jwt.sign(
+                                    {
+                                        id: utente._id,
+                                        ruolo: utente.ruolo
+                                    },
+                                    process.env.SECRET_KEY,
+                                    {
+                                        expiresIn: "7d",
+                                    }
+                                )
+                                return res.status(200).json({
+                                    nome: utente.nome,
+                                    token,
+                                    role: utente.ruolo,
+                                    first_access: utente.first_access
+                                })
+                            } else {
+                                return res.status(401).send("Password errata");
+                            }
+                        })
+                } else {
+                    return res.status(401).send("Email non valida");
+                }
+            })
     } catch (err) {
         return res.status(401).send("Inserire tutti i campi")
+    }
+})
+
+router.post("/resetPassword", (req, res) => {
+    try {
+
+        const { email } = req.body
+
+        if (validator.isEmpty(email) || !validator.isEmail(email)) {
+            return res.status(401).send("Email non valida")
+        }
+
+        Utente.findOne({ email })
+            .then((utente) => {
+                if (utente) {
+                    let password = Math.random().toString(36).slice(-8)
+                    hash_pw = bcrypt.hashSync(password)
+                    sendCredentials(utente.nome, email, password, "reset")
+                        .then(() => {
+                            Utente.updateOne({ email }, {hash_pw, first_access: true})
+                                .then(() => {
+                                    return res.status(201).send("Operazione riuscita")
+                                })
+                                .catch(() => {
+                                    return res.status(401).send("Errore nel salvataggio")
+                                })
+                        })
+                        .catch(() => {
+                            return res.status(401).send("Errore nell'invio delle credenziali")
+                        })
+                } else {
+                    return res.status(401).send("Email non valida")
+                }
+            })
+            
+    } catch (err) {
+        return res.status(401).send("Email non valida")
     }
 })
 
@@ -160,6 +237,30 @@ router.all("/*", (req, res, next) => {
         }
         next();
     });
+})
+
+router.post("/cambioPassword", (req, res) => {
+    try {
+
+        const { password } = req.body
+
+        if (validator.isEmpty(password)) {
+            return res.status(401).send("Password non valida")
+        }
+
+        hash_pw = bcrypt.hashSync(password)
+
+        Utente.findOneAndUpdate({ _id: req.auth.id }, { hash_pw, first_access: false })
+            .then((utente) => {
+                if (utente) {
+                    return res.status(200).send("Operazione confermata")
+                } else {
+                    return res.status(401).send("Errore salvataggio")
+                }
+            })
+    } catch (err) {
+        return res.status(401).send("Password non valida")
+    }
 })
 
 module.exports = {
