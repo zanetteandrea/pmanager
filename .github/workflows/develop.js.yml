@@ -6,6 +6,8 @@ name: PManager Develop Branch CI/CD
 env:
   SECRET_KEY : ${{secrets.SECRET_KEY}}
   DB_URL : ${{secrets.DB_URL}}
+  ID_AMM : ${{secrets.ID_AMM}}
+  ID_RIV : ${{secrets.ID_RIV}}
 
 on:
   push:
