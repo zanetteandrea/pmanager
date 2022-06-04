@@ -3,9 +3,15 @@
 
 name: PManager CI/CD
 
+env:
+  SECRET_KEY : ${{secrets.SECRET_KEY}}
+  DB_URL : ${{secrets.DB_URL}}
+  ID_AMM : ${{secrets.ID_AMM}}
+  ID_RIV : ${{secrets.ID_RIV}}
+
 on:
   push:
-    branches: [ "develop" ]
+    branches: [ "main" ]
 
 jobs:
   build:
@@ -32,4 +38,4 @@ jobs:
           heroku_api_key: ${{secrets.HEROKU_API_KEY}}
           heroku_app_name: "pmanagerbackend"
           heroku_email: "andrea.zanette@studenti.unitn.it"
-          branch: "develop"
+          branch: "main"
