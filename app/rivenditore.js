@@ -102,7 +102,7 @@ const Ordine = require('./models/Ordine')
  *               indirizzo:
  *                 type: string
  *                 description: indirizzo del Rivenditore.
- *                 example: via san giuseppe 35 38088 spiazzo
+ *                 example: via san giuseppe-35-38088-spiazzo
  *               catalogo:
  *                 type: Object
  *                 description: catalogo di prodotti ordinabili dal Rivenditore.
@@ -116,6 +116,8 @@ const Ordine = require('./models/Ordine')
  *           description: Non autorizzato
  *       404:
  *         description: Rivenditore non trovato
+ *       500:
+ *         description: Modifica dati rivenditore sugli ordini futuri fallita
  * /Rivenditore/:id:
  *   delete:
  *      summary: Eliminazione Rivenditore
@@ -321,7 +323,21 @@ router.patch('', (req, res) => {
                 $set: { "nome": rivenditore.nome, "email": rivenditore.email, "telefono": rivenditore.telefono, "indirizzo": rivenditore.indirizzo, "catalogo": rivenditore.catalogo }
             })
                 .then(() => {
-                    res.status(200).send('Rivenditore modificato con successo')
+                    // Modifico i dati su tutti gli ordini futuri di questo rivenditore
+                    let tomorrow = new Date()
+                    tomorrow.setHours(24, 0, 0, 0)
+                    Ordine.updateMany(
+                        { "rivenditore.id": _id, "dataConsegna": { "$gte": tomorrow.getTime() } },
+                        { $set: { "rivenditore": { "id": _id, "nome": rivenditore.nome, "email": rivenditore.email, "telefono": rivenditore.telefono, "indirizzo": rivenditore.indirizzo } } }
+                    )
+                        .then(() => {
+                            res.sendStatus(200)
+                            return;
+                        })
+                        .catch(() => {
+                            res.status(500).send('Modifica dati rivenditore sugli ordini futuri fallita')
+                            return;
+                        })
                 }).catch(() => {
                     res.status(404).send('Rivenditore non trovato')
                     return;
