@@ -175,7 +175,7 @@ function check_fields(dip) {
     }
     let orari = dip.orario
     for (let i = 0; i < orari.length; i++) {
-        if (orari[i].giorno < 1 || orari[i].giorno > 7) {
+        if (orari[i].giorno < 0 || orari[i].giorno > 6) {
             checks.valid = false
             checks.data = "giorno"
         }
