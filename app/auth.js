@@ -1,13 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const Utente = require('./models/Utente.js');
+const Utente = require('./models/utente.js');
 const validator = require('validator');
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { google } = require("googleapis");
 const nodemailer = require("nodemailer");
-const ruoli = require('./models/Ruoli.js');
-require('dotenv').config()
+const ruoli = require('./models/ruoli.js');
 const hbs = require("nodemailer-express-handlebars");
 
 // Pull out OAuth2 from googleapis
@@ -120,9 +119,9 @@ const checkOrario = (orario) => {
     let now = new Date()
     return orario.some((turno) => {
         if (turno.giorno === now.getDay()) {
-            let inizio = new Date(turno.oraIniziale).toLocaleTimeString('it-IT')
-            let fine = new Date(turno.oraFinale).toLocaleTimeString('it-IT')
-            let oraNow = now.toLocaleTimeString('it-IT')
+            let inizio = new Date(turno.oraIniziale).toLocaleTimeString('it-IT', {timeZone: 'Europe/Rome', hour: '2-digit', minute: '2-digit'})
+            let fine = new Date(turno.oraFinale).toLocaleTimeString('it-IT', {timeZone: 'Europe/Rome', hour: '2-digit', minute: '2-digit'})
+            let oraNow = now.toLocaleTimeString('it-IT', {timeZone: 'Europe/Rome', hour: '2-digit', minute: '2-digit'})
             if (inizio < oraNow && oraNow < fine) {
                 return true
             }
