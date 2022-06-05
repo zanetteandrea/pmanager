@@ -12,6 +12,76 @@ const hbs = require("nodemailer-express-handlebars");
 // Pull out OAuth2 from googleapis
 const OAuth2 = google.auth.OAuth2
 
+/**
+ * @swagger
+ * /login:
+ *   post:
+ *     summary: Login al sistema
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               "email":
+ *                 type: string
+ *                 description: Email utente
+ *                 example: "test@test.com"
+ *               "password":
+ *                 type: string
+ *                 description: Password utente
+ *                 example: "passwordsegreta"
+ *     responses:
+ *       200:
+ *         description: Accesso riuscito
+ *         content:
+ *           application/json:
+ *             schema:
+ *                type: object
+ *                description: Risultato autenticazione
+ *                example: {nome: "Mario Rossi", token: "qwhcnejncjece1212", role: "spedizioniere", firstaccess: false}
+ *       401:
+ *         description: Inserire dati validi / Tentativo di accesso fuori orario lavorativo / Inserire tutti i campi
+ * /resetPassword:
+ *   post:
+ *     summary: Richiede il reset e l'invio di una nuova password per accedere alla propria console
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               "email":
+ *                 type: string
+ *                 description: Email utente
+ *                 example: "test@test.com"
+ *     responses:
+ *       200:
+ *         description: Ok
+ *       401:
+ *         description: Inserire dati validi / Errore nell'invio delle credenziali / Inserire tutti i campi
+ * /cambioPassword:
+ *   post:
+ *     summary: Richiede la sostituzione della password con cui accedere al sistema
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               "password":
+ *                 type: string
+ *                 description: Nuova password
+ *                 example: "passwordsupersegreta12345"
+ *     responses:
+ *       200:
+ *         description: Ok
+ *       401:
+ *         description: Password non valida / Errore salvataggio
+*/
 const createTransporter = async () => {
     const oauth2Client = new OAuth2(
         process.env.OAUTH_CLIENT_ID,

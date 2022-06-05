@@ -67,7 +67,7 @@ const ruoli = require('./models/ruoli');
  *       400:
  *         description: Dati del Dipendente inseriti non validi o Dipendente già presente
  *       401:
- *         accesso non autorizzato
+ *         description: accesso non autorizzato
  * 
  *   patch:
  *     summary: Modifica un Dipendente
@@ -114,7 +114,7 @@ const ruoli = require('./models/ruoli');
  *       404:
  *         description: Dipendente non trovato
  *       401:
- *         accesso non autorizzato
+ *         description: accesso non autorizzato
  *   delete:
  *     description: API che permette l'eliminazione di un dipendente, il cui id deve essere passato come parametro nell'url
  *     summary: Elimina un dipendente

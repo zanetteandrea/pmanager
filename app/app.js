@@ -28,7 +28,7 @@ const options = {
         },
         servers: [
             {
-                url: "http://localhost:" + process.env.PORT || 8080,
+                url: "http://pmanagerbackend.herokuapp.com",
             },
         ],
     },
