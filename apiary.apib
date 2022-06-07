@@ -3,7 +3,7 @@ HOST: https://localhost:3000/api/v1
 
 # PManager 
 
-Documentazione API e modelli del sistema PManager
+Documentazione API del sistema PManager
 
 ## API Autenticazione [/auth]
 
@@ -40,7 +40,62 @@ Fornisce un token di autenticazione a tutti gli utenti che inseriscono delle cre
         Tentativo di accesso fuori orario lavorativo
         Email o Password errati
         Dati invalidi
+
+### POST Reset della password [POST]
+
+Un utente regolarmente registrato al sistema, nel caso in cui dimentichi la password per accedere alla sua console,
+può richiedere il reset e l'invio di una nuova password al suo indirizzo email.
+
++ Request (application/json)
+
+    + Body
+    
+        {
+            "email" : "test@test.it"
+        }
         
++ Response 200 (application/json)
+
+    Operazione riuscita
+
++ Response 401 
+    Una delle seguenti motivazioni
+    
+    + Body
+
+        Email non valida
+        Errore nell'invio delle credenziali
+        Errore nel salvataggio
+
+### POST Cambio della password [POST]
+
+Un utente autenticato alla propria console può cambiare in qualsiasi momento la password con cui accedere.
+
++ Request (application/json)
+
+    + Header
+        
+        x-access-token: String
+
+    + Body
+    
+        {
+            "password" : "nuovapasswordsegreta"
+        }
+        
++ Response 200 (application/json)
+
+    Operazione confermata
+
++ Response 401 
+    Una delle seguenti motivazioni
+    
+    + Body
+
+        Password non valida
+        Errore nel salvataggio
+
+
 ### ALL Controllo del token [GET]
 
 Protegge l'accesso a tutte le API private verificando che il token fornito nel header delle richieste sia valido
@@ -103,7 +158,8 @@ Se la richiesta proviene da un Rivenditore vengono restituiti solo i prodotti da
     
 + Response 404
     Prodotti o Rivenditore non trovati
-        
+
+    
 ### POST Crea Nuovo Prodotto [POST]
 
 Creazione di un nuovo prodotto da parte dell'AMM. Nel header della richiesta ci deve essere un token per permettere l'accesso controllato. Nel body della richiesta ci deve essere un oggetto in formato json contenente il nome, gli ingredienti e il prezzo consigliato del prodotto che si vuole creare
@@ -186,7 +242,8 @@ Modifica di un prodotto da parte dell'AMM. Nel header della richiesta ci deve es
 
 ### DELETE Eliminazione di un prodotto [DELETE]
 
-Elimazione di un prodotto, il cui id è passato nell'url, da parte dell'AMM
+Elimazione di un prodotto, il cui id è passato nell'url, da parte dell'AMM. 
+L'operazione elimina il prodotto anche dai cataloghi personalizzati dei rivenditori e dagli ordini successivi alla data odierna.
 
 + Parameters 
     + Values 
@@ -217,37 +274,6 @@ Elimazione di un prodotto, il cui id è passato nell'url, da parte dell'AMM
     
 + Response 500
     Eliminazione non riuscita
-    
-    
-### Upload foto [POST]
-
-Salva la foto del prodotto il cui id è passato come parametro nell'url
-
-+ Parameters
-    + Values 
-        id
-        
-+ Request (image/png)
-    
-    + Header 
-        
-        x-access-token: string
-
-+ Response 200
-
-    Foto memorizzata con successo
-    
-+ Response 401
-    
-    Accesso non autorizzato
-    
-+ Response 404
-
-    Prodotto non trovato
-    
-+ Response 500
-    
-    Upload foto fallito
 
 ## API Ordini [/ordini]
 
@@ -267,7 +293,13 @@ Se la richiesta proviene da un Rivenditore vengono restituiti solo gli ordini da
             "_id": "628a10a3a6b9dbc66374c071",
             "dataCreazione": 1653215395142,
             "dataConsegna": 1653215333885,
-            "idRivenditore": "62876106f494b63071fb3e35",
+            "rivenditore": {
+                "id" : "idrivenditore",
+                "nome" : "Mario Rossi",
+                "indirizzo" : "Via Verdi-32-31088-Trento",
+                "telefono" : "3214560987",
+                "email" : "mario.rossi@test.com"
+            },
             "modificabile": true,
             "totale": 43,
             "prodotti": [
@@ -315,14 +347,14 @@ Creazione di un nuovo ordine da parte di un Rivenditore
         {
             "dataConsegna": ["1653215333885","1632424333545"],
             "prodotti":[
-        {
-            "id": "62875ee2a3b2841c579af932", 
-            "quantita": 4
-        },
-        {
-            "id": "62875f26a3b2841c579af93a", 
-            "quantita": 5
-        }
+                {
+                    "id": "62875ee2a3b2841c579af932", 
+                    "quantita": 4
+                },
+                {
+                    "id": "62875f26a3b2841c579af93a", 
+                    "quantita": 5
+                }
     ]
 }
 
@@ -337,8 +369,15 @@ Creazione di un nuovo ordine da parte di un Rivenditore
         "_id": "6284eb9ac1e5c03bd845a60a",
         "dataCreazione": "18781478917419",
         "dataConsegna": "198934791734197",
-        "idRivenditore": "nwc78adcbjkas3b324",
+        "rivenditore": {
+            "id" : "idrivenditore",
+            "nome" : "Mario Rossi",
+            "indirizzo" : "Via Verdi-32-31088-Trento",
+            "telefono" : "3214560987",
+            "email" : "mario.rossi@test.com"
+        },
         "modificabile": true,
+        "totale" : 15
         "prodotti": [
           {
             "id": "abdui89d8asb4b",
@@ -413,7 +452,8 @@ Modifica di un ordine da parte di un Rivenditore
     + Body
 
         Dati inseriti non validi
-        Fuori orario limite
+        Ordine non modificabile dopo le ore 20:00 del giorno precedente alla consegna
+        Errore durante la modifica
     
 + Response 401 
 
@@ -422,14 +462,10 @@ Modifica di un ordine da parte di un Rivenditore
 + Response 403 
 
     Ordine non modificabile perchè appartenente ad un altro rivenditore / Prodotto non ordinabile
-    
-    + Body
 
 + Response 404 
     
     Ordine non trovato / Rivenditore non trovato
-    
-    + Body
 
 ### DELETE Eliminazione di un ordine [DELETE]
 
@@ -449,7 +485,12 @@ Elimazione di un nuovo ordine da parte di un Rivenditore
     
 + Response 400 
 
-    Errore durante la rimozione / ordine non cancellabile perchè fuori orario limite
+    Una delle seguenti motivazioni
+    
+    + Body
+
+    Errore durante la rimozione 
+    Ordine non cancellabile dopo le ore 20:00 del giorno precedente alla consegna
    
 + Response 401 
 
@@ -476,10 +517,11 @@ Ritorna tutti i dati degli ordini da consegnare nella la giornata corrente
     + Body
         [
           {
+            "id": "1234567890"
             "nome": "Poli",
             "email": "poli@info.it",
             "telefono": 345987382743,
-            "Prodotti": [
+            "prodotti": [
               {
                 "nome": "Tartaruga",
                 "quantita": 10
@@ -494,7 +536,7 @@ Ritorna tutti i dati degli ordini da consegnare nella la giornata corrente
     
 + Response 400 
 
-    Errore durante il recupero dei dati di spedizione
+    Errore durante generazione spedizioni
 
 + Response 401 
 
@@ -536,7 +578,7 @@ Ritorna i prodotti e le quantità di ingredienti necessarie alla loro produzione
     
 + Response 400 
 
-    Errore durante il recupero dei dati di produzione
+    Errore durante generazione produzione
    
 + Response 401 
 
@@ -634,7 +676,7 @@ Creazione di un nuovo rivenditore
 
 ### PATCH Modifica di un rivenditore [PATCH]
 
-Modifica di un rivenditore
+Modifica i dati di un rivenditore. L'operazione aggiorna i dati del rivenditore anche sugli ordini futuri.
 
 + Request 
     + Headers
@@ -657,7 +699,7 @@ Modifica di un rivenditore
         ]
     }
 
-+ Response 201 
++ Response 200 
 
     Rivenditore modificato con successo
   
@@ -672,10 +714,14 @@ Modifica di un rivenditore
 + Response 404 
     
     Rivenditore non trovato
+    
++ Response 500
+
+    Modifica dati rivenditore sugli ordini futuri fallita
 
 ### DELETE Eliminazione di un rivenditore [DELETE]
 
-Elimazione di un Rivenditore da parte dell'AMM
+Elimazione di un Rivenditore da parte dell'AMM. L'operazione elimina anche tutti gli ordini futuri del rivenditore.
 
 + Parameters 
     + Values 
@@ -685,13 +731,9 @@ Elimazione di un Rivenditore da parte dell'AMM
     + Headers
        x-access-token: String
     
-+ Response 204 
++ Response 200 
 
     Rivenditore rimosso dal sistema
-  
-+ Response 400 
-
-    Errore durante la rimozione
 
 + Response 401 
 
@@ -699,7 +741,15 @@ Elimazione di un Rivenditore da parte dell'AMM
 
 + Response 404 
 
-    Rivenditore non presente
+    Rivenditore inesistente
+
++ Response 500 
+
+    Una delle seguenti motivazioni
+
+    + Body
+        Errore nell'eliminazione del rivenditore
+        Errore nell'eliminazione degli ordini futuri
 
 ## API Dipendente [/dipendente]
 
