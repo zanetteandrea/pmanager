@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const Utente = require('./models/Utente');
-const Dipendente = require('./models/Dipendente'); // get our mongoose model
+const Utente = require('./models/utente');
+const Dipendente = require('./models/dipendente'); // get our mongoose model
 
 const validator = require('validator');
 
@@ -67,7 +67,7 @@ const ruoli = require('./models/ruoli');
  *       400:
  *         description: Dati del Dipendente inseriti non validi o Dipendente già presente
  *       401:
- *         accesso non autorizzato
+ *         description: accesso non autorizzato
  * 
  *   patch:
  *     summary: Modifica un Dipendente
@@ -114,7 +114,7 @@ const ruoli = require('./models/ruoli');
  *       404:
  *         description: Dipendente non trovato
  *       401:
- *         accesso non autorizzato
+ *         description: accesso non autorizzato
  *   delete:
  *     description: API che permette l'eliminazione di un dipendente, il cui id deve essere passato come parametro nell'url
  *     summary: Elimina un dipendente
@@ -175,7 +175,7 @@ function check_fields(dip) {
     }
     let orari = dip.orario
     for (let i = 0; i < orari.length; i++) {
-        if (orari[i].giorno < 1 || orari[i].giorno > 7) {
+        if (orari[i].giorno < 0 || orari[i].giorno > 6) {
             checks.valid = false
             checks.data = "giorno"
         }

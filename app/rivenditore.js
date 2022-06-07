@@ -1,10 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const Rivenditore = require('./models/Rivenditore') // get our mongoose model
-const Utente = require('./models/Utente')
+const Rivenditore = require('./models/rivenditore') // get our mongoose model
+const Utente = require('./models/utente')
 const validator = require('validator');
 const auth = require('./auth');
-const ruoli = require('./models/Ruoli');
+const ruoli = require('./models/ruoli');
+const Ordine = require('./models/Ordine')
 /**
  * @swagger
  * /Rivenditore:
@@ -101,7 +102,7 @@ const ruoli = require('./models/Ruoli');
  *               indirizzo:
  *                 type: string
  *                 description: indirizzo del Rivenditore.
- *                 example: via san giuseppe 35 38088 spiazzo
+ *                 example: via san giuseppe-35-38088-spiazzo
  *               catalogo:
  *                 type: Object
  *                 description: catalogo di prodotti ordinabili dal Rivenditore.
@@ -115,6 +116,8 @@ const ruoli = require('./models/Ruoli');
  *           description: Non autorizzato
  *       404:
  *         description: Rivenditore non trovato
+ *       500:
+ *         description: Modifica dati rivenditore sugli ordini futuri fallita
  * /Rivenditore/:id:
  *   delete:
  *      summary: Eliminazione Rivenditore
@@ -130,14 +133,12 @@ const ruoli = require('./models/Ruoli');
  *      schema:
  *         type: String
  *      responses:
- *         204:
+ *         200:
  *           description: Rivenditore rimosso dal sistema
- *         400:
- *           description: Errore durante la rimozione
- *         401:
- *           description: Non autorizzato
+ *         500:
+ *           description: Errore nell'eliminazione del rivenditore
  *         404:
- *           description: Rivenditore non presente
+ *           description: Rivenditore inesistente
 */
 
 function check_fields(riv) {
@@ -234,7 +235,7 @@ router.post('', (req, res) => {
         });
 
         check_duplicate(rivenditore)
-                .then((duplicate) => {
+            .then((duplicate) => {
                 if (duplicate) {
                     res.status(400).send('Email già presente nel sistema');
                     return;
@@ -261,23 +262,39 @@ router.post('', (req, res) => {
 });
 
 // DELETE RIVENDITORE
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', (req, res) => {
 
     const _id = req.params.id
     if (req.auth.ruolo == ruoli.AMM) {
-        let rivenditore = await Rivenditore.findById(_id).exec();
-        if (!rivenditore) {
-            res.status(404).send("Rivenditore Non Presente");
-            return;
-        }
-        try {
-            await rivenditore.deleteOne()
-            res.status(204).send("Rivendenditore rimosso");
-        } catch {
-            res.status(400).send("Errore durante la rimozione");
-        }
+        Rivenditore.findById(_id)
+            .then((rivenditore) => {
+                rivenditore.deleteOne()
+                    .then(() => {
+                        // Elimino tutti gli ordini futuri di questo rivenditore
+                        let tomorrow = new Date()
+                        tomorrow.setHours(24, 0, 0, 0)
+                        Ordine.deleteMany({ "rivenditore.id": _id, "dataConsegna": { "$gte": tomorrow.getTime() } })
+                            .then(() => {
+                                res.sendStatus(200)
+                                return
+                            })
+                            .catch(() => {
+                                res.status(500).send("Errore nell'eliminazione degli ordini futuri")
+                                return
+                            })
+                    })
+                    .catch(() => {
+                        res.status(500).send("Errore nell'eliminazione del rivenditore")
+                        return
+                    })
+            })
+            .catch(() => {
+                res.status(404).send("Rivenditore inesistente")
+                return
+            })
     } else {
         res.status(401).send("Non autorizzato");
+        return
     }
 });
 
@@ -306,7 +323,21 @@ router.patch('', (req, res) => {
                 $set: { "nome": rivenditore.nome, "email": rivenditore.email, "telefono": rivenditore.telefono, "indirizzo": rivenditore.indirizzo, "catalogo": rivenditore.catalogo }
             })
                 .then(() => {
-                    res.status(200).send('Rivenditore modificato con successo')
+                    // Modifico i dati su tutti gli ordini futuri di questo rivenditore
+                    let tomorrow = new Date()
+                    tomorrow.setHours(24, 0, 0, 0)
+                    Ordine.updateMany(
+                        { "rivenditore.id": _id, "dataConsegna": { "$gte": tomorrow.getTime() } },
+                        { $set: { "rivenditore": { "id": _id, "nome": rivenditore.nome, "email": rivenditore.email, "telefono": rivenditore.telefono, "indirizzo": rivenditore.indirizzo } } }
+                    )
+                        .then(() => {
+                            res.sendStatus(200)
+                            return;
+                        })
+                        .catch(() => {
+                            res.status(500).send('Modifica dati rivenditore sugli ordini futuri fallita')
+                            return;
+                        })
                 }).catch(() => {
                     res.status(404).send('Rivenditore non trovato')
                     return;

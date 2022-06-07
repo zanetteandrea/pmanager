@@ -1,11 +1,11 @@
 const express = require('express')
 const router = express.Router()
-const Prodotto = require('./models/Prodotto') // get our mongoose model
-const ruoli = require("./models/Ruoli")
+const Prodotto = require('./models/prodotto') // get our mongoose model
+const ruoli = require("./models/ruoli")
 const multer = require('multer')
 var validator = require('validator')
-const Rivenditore = require('./models/Rivenditore')
-
+const Rivenditore = require('./models/rivenditore')
+const Ordine = require('./models/Ordine')
 /**
  * @swagger
  * /prodotti:
@@ -172,7 +172,7 @@ const Rivenditore = require('./models/Rivenditore')
 
 
 //funzione per controllare la validità dei dati ricevuti
-function check_dati(req){
+function check_dati(req) {
     var ris = {
         valid: Boolean,
         data: String
@@ -197,10 +197,10 @@ function check_dati(req){
 
 
 //funzione per verificare che non si aggiungano prodotti con lo stesso nome
-function check_duplicate(req, nomi){
+function check_duplicate(req, nomi) {
     let ris = false
     //normalizzo tutti i nomi dei prodotti presenti nel sistema
-    for(var i=0;i<nomi.length;i++){
+    for (var i = 0; i < nomi.length; i++) {
         nomi[i] = nomi[i].split(" ").join("")
         nomi[i] = nomi[i].toLowerCase()
     }
@@ -209,8 +209,8 @@ function check_duplicate(req, nomi){
     nuovo = nuovo.toLowerCase()
     //verifico l'univocità del nome
     nomi.forEach((nome) => {
-        if(nuovo == nome){
-            ris = true;  
+        if (nuovo == nome) {
+            ris = true;
         }
     })
     return ris;
@@ -223,7 +223,7 @@ const storage = multer.diskStorage({
         cb(null, '/images/')
     },
     filename: (req, file, cb) => {
-        cb(null, req.params.id+'.png')
+        cb(null, req.params.id + '.png')
     }
 })
 
@@ -276,12 +276,12 @@ router.get('', (req, res) => {
 
 
 //API che permette l'aggiunta di un nuovo prodotto nel sistema
-router.post('', async(req, res) => {
+router.post('', async (req, res) => {
     //controllo che sia stato l'AMM a fare la richiesta
     if (req.auth.ruolo == ruoli.AMM) {
         //controllo la validità dei dati, se i dati non sono validi restituisco il codice 400
         var ris = check_dati(req)
-        if(!ris.valid){
+        if (!ris.valid) {
             res.status(400).send('Campo ' + ris.data + ' non valido')
             return
         }
@@ -289,7 +289,7 @@ router.post('', async(req, res) => {
         //richiedo tutti i prodotti presenti nel database e mappo i nomi in un nuovo array che passo alla funzione check_duplicate
         let prod = await Prodotto.find().exec()
         let nomi = prod.map(elem => elem.nome)
-        if(check_duplicate(req,nomi)){
+        if (check_duplicate(req, nomi)) {
             res.status(400).send('Esiste già un prodotto con questo nome')
             return
         }
@@ -346,7 +346,7 @@ router.post("/:id", upload.single('image'), (req, res) => {
             //se non riesco a trovare il prodotto, ritorno il codice 500
             return res.status(500).send("Errore salvataggio foto");
         }
-    }else{
+    } else {
         res.status(401).send('Accesso non autorizzato')
         return
     }
@@ -372,13 +372,33 @@ router.delete('/:id', (req, res) => {
                 //se lo trovo, lo elimino
                 prodotto.deleteOne()
                     .then(() => {
-                        //se l'eliminazione va a buon fine, restituisco il codice 204
-                        res.status(204).send('Prodotto eliminato con successo')
-                        return
+                        // Elimino il prodotto da tutti gli ordini futuri
+                        let today = new Date()
+                        today.setHours(0, 0, 0, 0)
+                        Ordine.updateMany({ "dataConsegna": { "$gte": today.getTime() } }, { "$pull": { "prodotti": { "id": id } } })
+                            .then(() => {
+                                // Elimino il prodotto da tutti i cataloghi dei rivenditori
+                                Rivenditore.updateMany({}, { "$pull": { "catalogo": { "id": id } } })
+                                    .then(() => {
+                                        //se l'eliminazione va a buon fine, restituisco il codice 204
+                                        res.status(204).send('Eliminazione riuscita')
+                                        return
+                                    })
+                                    .catch((err) => {
+                                        //se l'eliminazione non va a buon fine, restituisco il codice 500
+                                        res.status(500).send('Eliminazione prodotto dai cataloghi personalizzati non riuscita: ' + err)
+                                        return
+                                    })
+                            })
+                            .catch((err) => {
+                                //se l'eliminazione non va a buon fine, restituisco il codice 500
+                                res.status(500).send('Eliminazione prodotto dagli ordini futuri non riuscita: ' + err)
+                                return
+                            })
                     })
                     .catch((err) => {
                         //se l'eliminazione non va a buon fine, restituisco il codice 500
-                        res.status(500).send('Eliminazione non riuscita: ' + err)
+                        res.status(500).send('Eliminazione prodotto non riuscita: ' + err)
                         return
                     })
             })
@@ -387,7 +407,7 @@ router.delete('/:id', (req, res) => {
                 res.status(404).send("Prodotto non trovato: " + err)
                 return
             })
-    }else{
+    } else {
         res.status(401).send('Accesso non autorizzato')
         return
     }
@@ -395,13 +415,17 @@ router.delete('/:id', (req, res) => {
 
 
 //API per modificare un prodotto presente nel catalogo
-router.patch('', async(req, res) => {
+router.patch('', async (req, res) => {
     //controllo che sia stato l'AMM a fare la richiesta
     if (req.auth.ruolo == ruoli.AMM) {
         //controllo la validità dei dati, se non sono validi restituisco il codice 400
         var ris = check_dati(req)
-        if(!ris.valid){
+        if (!ris.valid) {
             res.status(400).send('Campo ' + ris.data + ' non valido')
+            return
+        }
+        if (req.body._id === undefined || validator.isEmpty(req.body._id) || req.body._id === null) {
+            res.status(400).send('Campo _id non valido')
             return
         }
 
@@ -409,13 +433,13 @@ router.patch('', async(req, res) => {
         //in un nuovo array che passo alla funzione check_duplicate, se esiste già un prodotto con quel nome, restituisco il codice 409
         let prod = await Prodotto.find().exec()
         let nomi = [], index = 0;
-        prod.forEach((elem)=>{
-            if(elem._id != req.body._id){
+        prod.forEach((elem) => {
+            if (elem._id != req.body._id) {
                 nomi[index] = elem.nome
                 index++
             }
         })
-        if(check_duplicate(req, nomi)){
+        if (check_duplicate(req, nomi)) {
             res.status(409).send('Esiste già un prodotto con questo nome')
             return
         }
@@ -439,7 +463,7 @@ router.patch('', async(req, res) => {
                 res.status(404).send('Prodotto non trovato: ' + err)
                 return
             })
-    }else{
+    } else {
         res.status(401).send('Accesso non autorizzato')
         return
     }

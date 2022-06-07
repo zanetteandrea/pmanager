@@ -1,17 +1,87 @@
 const express = require('express');
 const router = express.Router();
-const Utente = require('./models/Utente.js');
+const Utente = require('./models/utente.js');
 const validator = require('validator');
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { google } = require("googleapis");
 const nodemailer = require("nodemailer");
-const ruoli = require('./models/Ruoli.js');
-require('dotenv').config()
+const ruoli = require('./models/ruoli.js');
+const hbs = require("nodemailer-express-handlebars");
 
 // Pull out OAuth2 from googleapis
 const OAuth2 = google.auth.OAuth2
 
+/**
+ * @swagger
+ * /login:
+ *   post:
+ *     summary: Login al sistema
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               "email":
+ *                 type: string
+ *                 description: Email utente
+ *                 example: "test@test.com"
+ *               "password":
+ *                 type: string
+ *                 description: Password utente
+ *                 example: "passwordsegreta"
+ *     responses:
+ *       200:
+ *         description: Accesso riuscito
+ *         content:
+ *           application/json:
+ *             schema:
+ *                type: object
+ *                description: Risultato autenticazione
+ *                example: {nome: "Mario Rossi", token: "qwhcnejncjece1212", role: "spedizioniere", firstaccess: false}
+ *       401:
+ *         description: Inserire dati validi / Tentativo di accesso fuori orario lavorativo / Inserire tutti i campi
+ * /resetPassword:
+ *   post:
+ *     summary: Richiede il reset e l'invio di una nuova password per accedere alla propria console
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               "email":
+ *                 type: string
+ *                 description: Email utente
+ *                 example: "test@test.com"
+ *     responses:
+ *       200:
+ *         description: Ok
+ *       401:
+ *         description: Inserire dati validi / Errore nell'invio delle credenziali / Inserire tutti i campi
+ * /cambioPassword:
+ *   post:
+ *     summary: Richiede la sostituzione della password con cui accedere al sistema
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               "password":
+ *                 type: string
+ *                 description: Nuova password
+ *                 example: "passwordsupersegreta12345"
+ *     responses:
+ *       200:
+ *         description: Ok
+ *       401:
+ *         description: Password non valida / Errore salvataggio
+*/
 const createTransporter = async () => {
     const oauth2Client = new OAuth2(
         process.env.OAUTH_CLIENT_ID,
@@ -26,7 +96,7 @@ const createTransporter = async () => {
     const accessToken = await new Promise((resolve, reject) => {
         oauth2Client.getAccessToken((err, token) => {
             if (err) {
-                reject("Failed to create access token :( " + err);
+                reject("Invio email credenziali fallito");
             }
             resolve(token);
         });
@@ -47,18 +117,34 @@ const createTransporter = async () => {
     return transporter;
 };
 
-const sendCredentials = (nome, email, password) => {
+const sendCredentials = (nome, email, password, template) => {
     return new Promise((resolve, reject) => {
-        // Mail options
-        let mailOptions = {
-            from: process.env.SENDER_EMAIL,
-            to: email,
-            subject: "Le tue nuove credenziali",
-            text: "Ciao " + nome + ", accedi alla tua console PManager con le credenziali " + password
-        };
-
         createTransporter()
             .then((emailTransporter) => {
+
+                const options = {
+                    viewEngine: {
+                        extname: ".handlebars",
+                        layoutsDir: "./app/hbs",
+                        defaultLayout: template,
+                    },
+                    viewPath: "./app/hbs",
+                    extname: ".handlebars",
+                }
+
+                emailTransporter.use("compile", hbs(options))
+
+                const mailOptions = {
+                    from: process.env.SENDER_EMAIL,
+                    to: email,
+                    subject: "Le tue nuove credenziali PManager",
+                    template,
+                    context: {
+                        nome,
+                        password
+                    },
+                }
+
                 emailTransporter.sendMail(mailOptions, (error, info) => {
                     if (error) {
                         console.log(error)
@@ -78,21 +164,23 @@ const sendCredentials = (nome, email, password) => {
 const register = (utente) => {
     return new Promise((resolve, reject) => {
         let password = Math.random().toString(36).slice(-8)
-        console.log("Password generata:", password)
-        sendCredentials(utente.nome, utente.email, password)
+        sendCredentials(utente.nome, utente.email, password, "register")
             .then(() => {
                 utente.hash_pw = bcrypt.hashSync(password)
                 utente.first_access = true
                 utente.save()
                     .then((user) => {
-                        resolve(user)
+                        let obj = user.toObject()
+                        delete obj.hash_pw
+                        delete obj.first_access
+                        resolve(obj)
                     })
                     .catch(() => {
                         reject()
                     })
             })
             .catch(() => {
-                reject()
+                reject("Errore nella spedizione delle credenziali")
             })
     })
 }
@@ -101,9 +189,9 @@ const checkOrario = (orario) => {
     let now = new Date()
     return orario.some((turno) => {
         if (turno.giorno === now.getDay()) {
-            let inizio = new Date(turno.oraIniziale).toLocaleTimeString('it-IT')
-            let fine = new Date(turno.oraFinale).toLocaleTimeString('it-IT')
-            let oraNow = now.toLocaleTimeString('it-IT')
+            let inizio = new Date(turno.oraIniziale).toLocaleTimeString('it-IT', {timeZone: 'Europe/Rome', hour: '2-digit', minute: '2-digit'})
+            let fine = new Date(turno.oraFinale).toLocaleTimeString('it-IT', {timeZone: 'Europe/Rome', hour: '2-digit', minute: '2-digit'})
+            let oraNow = now.toLocaleTimeString('it-IT', {timeZone: 'Europe/Rome', hour: '2-digit', minute: '2-digit'})
             if (inizio < oraNow && oraNow < fine) {
                 return true
             }
@@ -145,7 +233,8 @@ router.post("/login", (req, res) => {
                                 return res.status(200).json({
                                     nome: utente.nome,
                                     token,
-                                    role: utente.ruolo
+                                    role: utente.ruolo,
+                                    first_access: utente.first_access
                                 })
                             } else {
                                 return res.status(401).send("Password errata");
@@ -157,6 +246,43 @@ router.post("/login", (req, res) => {
             })
     } catch (err) {
         return res.status(401).send("Inserire tutti i campi")
+    }
+})
+
+router.post("/resetPassword", (req, res) => {
+    try {
+
+        const { email } = req.body
+
+        if (validator.isEmpty(email) || !validator.isEmail(email)) {
+            return res.status(401).send("Email non valida")
+        }
+
+        Utente.findOne({ email })
+            .then((utente) => {
+                if (utente) {
+                    let password = Math.random().toString(36).slice(-8)
+                    hash_pw = bcrypt.hashSync(password)
+                    sendCredentials(utente.nome, email, password, "reset")
+                        .then(() => {
+                            Utente.updateOne({ email }, {hash_pw, first_access: true})
+                                .then(() => {
+                                    return res.status(201).send("Operazione riuscita")
+                                })
+                                .catch(() => {
+                                    return res.status(401).send("Errore nel salvataggio")
+                                })
+                        })
+                        .catch(() => {
+                            return res.status(401).send("Errore nell'invio delle credenziali")
+                        })
+                } else {
+                    return res.status(401).send("Email non valida")
+                }
+            })
+            
+    } catch (err) {
+        return res.status(401).send("Email non valida")
     }
 })
 
@@ -181,6 +307,30 @@ router.all("/*", (req, res, next) => {
         }
         next();
     });
+})
+
+router.post("/cambioPassword", (req, res) => {
+    try {
+
+        const { password } = req.body
+
+        if (validator.isEmpty(password)) {
+            return res.status(401).send("Password non valida")
+        }
+
+        hash_pw = bcrypt.hashSync(password)
+
+        Utente.findOneAndUpdate({ _id: req.auth.id }, { hash_pw, first_access: false })
+            .then((utente) => {
+                if (utente) {
+                    return res.status(200).send("Operazione confermata")
+                } else {
+                    return res.status(401).send("Errore salvataggio")
+                }
+            })
+    } catch (err) {
+        return res.status(401).send("Password non valida")
+    }
 })
 
 module.exports = {
