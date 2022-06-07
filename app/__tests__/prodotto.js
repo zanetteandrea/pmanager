@@ -62,36 +62,7 @@ describe("Test modulo prodotto", () => {
                 return done();
             })
     })
-    /*
-    test("POST/ Creazione di un nuovo prodotto con dati validi", (done) => {
-        let prod = {
-            nome: "Prova test",
-            ingredienti: [
-                {
-                    "nome": "farina",
-                    "quantita": 100,
-                    "udm": "gr"
-                },
-                {
-                    "nome": "acqua",
-                    "quantita": 250,
-                    "udm": "ml"
-                }
-            ],
-            prezzo: 2
-        }
-        request(app)
-            .post(routeProd)
-            .set('x-access-token', tokenAMM)
-            .set('Accept', 'application/json')
-            .send(prod)
-            .expect(201)
-            .end((err, res) => {
-                if (err) return done(err);
-                return done();
-            })
-    })
-    */
+    
     test("POST/ Creazione di un nuovo prodotto con alcuni campi vuoti", (done) => {
         let prod = {
             nome: "Prova test 2",
