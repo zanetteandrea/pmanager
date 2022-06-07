@@ -10,7 +10,7 @@
   },
   "jest": {
     "verbose": true,
-    "testTimeout": 8000,
+    "testTimeout": 20000,
     "setupFiles": ["./.jest/setEnvVars.js"]
   },
   "repository": {
